@@ -1,0 +1,6 @@
+# macOS
+.DS_Store
+
+# Lokale Werkzeug-Konfiguration und interne Notizen — nicht öffentlich
+.claude/
+CLAUDE.md

@@ -1,0 +1,2606 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1, viewport-fit=cover"
+    />
+    <title>Marlon — Media &amp; Interaction Design</title>
+    <meta
+      name="description"
+      content="Portfolio of Marlon, Media &amp; Interaction Design student in Osnabrück."
+    />
+    <meta name="color-scheme" content="light" />
+
+    <link rel="preload" as="image" href="media/poster.jpg" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500&family=Inter:opsz,wght@14..32,400;14..32,500&display=swap"
+      rel="stylesheet"
+    />
+
+    <style>
+      /* ============ Tunable tokens ============ */
+      :root {
+        --ink: #ffffff; /* Nav + Footer */
+        --ink-dim: rgba(255, 255, 255, 0.72);
+        /* Weißer Text liegt auf diesem Grau bei ~3,4–4,1:1. Der weiche Schatten hebt
+       ihn optisch ab, ohne das Video zu verändern. Stärker = besser lesbar.      */
+        --ink-shadow:
+          0 1px 2px rgba(0, 0, 0, 0.38), 0 0 20px rgba(0, 0, 0, 0.28);
+        --pad: clamp(20px, 3.2vw, 48px);
+        --nav-size: clamp(22px, 1.75vw, 28px);
+        --mono-size: 11px;
+        --ease: cubic-bezier(0.2, 0.7, 0.2, 1);
+        --serif: "Inter", sans-serif; /* Display-Schrift (Name historisch) */
+        --sans: "Geist", system-ui, -apple-system, sans-serif;
+        --ox: 50vw;
+        --oy: 70vh; /* Pusteblumen-Kopf, per JS gesetzt: Ursprung des Übergangs */
+      }
+
+      * {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+      }
+      html,
+      body {
+        height: 100%;
+      }
+      body {
+        background: #808080; /* entspricht dem Video-Grau: kein Aufblitzen vor dem Laden */
+        color: var(--ink);
+        font-family: var(
+          --sans
+        ); /* Fließtext: Geist. Überschriften & große Aussagen: Inter */
+        -webkit-font-smoothing: antialiased;
+        overflow: hidden;
+      }
+
+      /* ============ Video-Bühne ============ */
+      .stage {
+        position: fixed;
+        inset: 0;
+        transform-origin: var(--ox) var(--oy);
+        transition: transform 2.2s cubic-bezier(0.22, 0.8, 0.2, 1);
+        background: #808080 url("media/poster.jpg") center / cover no-repeat;
+      }
+      @media (orientation: portrait) and (max-width: 700px) {
+        .stage {
+          background-image: url("media/poster-portrait.jpg");
+        }
+      }
+      .stage {
+        -webkit-user-select: none;
+        user-select: none;
+        -webkit-touch-callout: none;
+      }
+      .stage video {
+        pointer-events: none; /* kein Rechtsklick-Menü „Video speichern“ */
+        position: absolute;
+        inset: 0;
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+        object-position: 50% 50%;
+        opacity: 0;
+        transition: opacity 1s var(--ease);
+        /* Eigene Compositing-Ebene: der Browser schiebt nur fertige Frames,
+       statt die Seite bei jedem Frame neu zu zeichnen.                   */
+        transform: translateZ(0);
+        backface-visibility: hidden;
+      }
+      .stage video.is-ready {
+        opacity: 1;
+      }
+      body.in-page .stage {
+        transform: scale(1.08);
+      } /* Kamera fährt in die Pusteblume */
+
+      /* ============ Parallaxe (nur Maus, nur ohne reduzierte Bewegung) ============ */
+      /* --px / --py laufen von -1 bis 1 und werden per JS weich nachgeführt.
+     Tiefe: Video weicht entgegen der Maus aus (hinten), Inhalt folgt ihr
+     leicht, die große Überschrift am stärksten (vorne).                     */
+      @media (pointer: fine) and (prefers-reduced-motion: no-preference) {
+        .stage video {
+          /* 5 % größer, damit beim Verschieben nie ein Rand sichtbar wird */
+          transform: translate3d(
+              calc(var(--px, 0) * -0.6vw),
+              calc(var(--py, 0) * -0.6vh),
+              0
+            )
+            scale(1.05);
+        }
+        /* eigene translate-Eigenschaft: kollidiert nicht mit den transform-Animationen */
+        .page .inner {
+          translate: calc(var(--px, 0) * 0.25vw) calc(var(--py, 0) * 0.3vh);
+        }
+        .page h2 {
+          translate: calc(var(--px, 0) * 0.45vw) calc(var(--py, 0) * 0.25vh);
+        }
+        #seeds {
+          translate: calc(var(--px, 0) * 0.7vw) calc(var(--py, 0) * 0.5vh);
+        }
+        nav,
+        footer {
+          translate: calc(var(--px, 0) * 2px) calc(var(--py, 0) * 1.5px);
+        }
+      }
+
+      /* ============ UI über dem Video ============ */
+      .ui {
+        position: fixed;
+        inset: 0;
+        z-index: 2;
+        display: grid;
+        grid-template-rows: auto 1fr auto;
+        padding: calc(var(--pad) * 0.8) var(--pad) var(--pad);
+        padding-top: max(calc(var(--pad) * 0.8), env(safe-area-inset-top));
+        padding-bottom: max(var(--pad), env(safe-area-inset-bottom));
+        text-shadow: var(--ink-shadow);
+        pointer-events: none; /* nur die Bedienelemente fangen Klicks ab */
+      }
+      .ui > * {
+        display: flex;
+        justify-content: flex-end;
+        align-items: baseline;
+      }
+      nav a,
+      footer > * {
+        pointer-events: auto;
+      } /* nur die Links selbst, nicht die ganze Zeile */
+
+      nav {
+        gap: clamp(18px, 2.4vw, 36px);
+      }
+      nav a {
+        position: relative;
+        color: inherit;
+        text-decoration: none;
+        font-family: var(--serif);
+        font-optical-sizing: auto;
+        font-size: var(--nav-size);
+        font-weight: 400;
+        letter-spacing: 0;
+        padding: 6px 0;
+      }
+      nav a::after {
+        content: "";
+        position: absolute;
+        left: 0;
+        right: 0;
+        bottom: 5px;
+        height: 1px;
+        background: currentColor;
+        transform: scaleX(0);
+        transform-origin: left;
+        transition: transform 0.45s var(--ease);
+      }
+      nav a:hover::after,
+      nav a:focus-visible::after,
+      nav a[aria-current="page"]::after {
+        transform: scaleX(1);
+      }
+
+      /* Kleine Labels: Geist in Versalien (Klassenname historisch, keine Monospace-Schrift) */
+      .mono,
+      button.ctl.mono {
+        font-family: var(--sans);
+        font-size: var(--mono-size);
+        font-weight: 500;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+      }
+      button.ctl {
+        all: unset;
+        /* muss nach "all: unset" stehen: das setzt das geerbte pointer-events sonst
+       auf "none" zurück und der Klick landet im Video statt im Button */
+        pointer-events: auto;
+        cursor: pointer;
+        color: var(--ink-dim);
+        text-shadow: var(--ink-shadow);
+        padding: 8px 0;
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        transition: color 0.3s var(--ease);
+      }
+      button.ctl:hover,
+      button.ctl[aria-pressed="true"] {
+        color: var(--ink);
+      }
+      button.ctl:focus-visible,
+      nav a:focus-visible {
+        outline: 1px solid currentColor;
+        outline-offset: 4px;
+      }
+
+      /* ============ Sprachumschalter EN / DE (oben links, auf Höhe der Navigation) ============ */
+      .ui > .lang {
+        position: absolute;
+        left: var(--pad);
+        top: max(calc(var(--pad) * 0.8), env(safe-area-inset-top));
+        height: calc(
+          var(--nav-size) * 1.21 + 12px
+        ); /* = Zeilenhöhe der Nav-Links inkl. Padding */
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        color: var(--ink-dim);
+      }
+      .lang button.ctl.mono {
+        padding: 10px 2px;
+      }
+      .lang button[aria-pressed="true"] {
+        color: var(--ink);
+      }
+
+      /* ============ Sound-Schalter als Audiowelle ============ */
+      /* Großzügige Trefferfläche, per negativem Margin optisch bündig zum Rand. */
+      #sound {
+        padding: 12px;
+        margin: -12px;
+      }
+      .wave {
+        display: inline-flex;
+        align-items: center;
+        gap: 3px;
+        height: 18px;
+        filter: drop-shadow(
+          0 1px 2px rgba(0, 0, 0, 0.38)
+        ); /* text-shadow greift bei Balken nicht */
+      }
+      .wave i {
+        display: block;
+        width: 2px;
+        height: 100%;
+        border-radius: 1px;
+        background: currentColor;
+        transform: scaleY(
+          0.12
+        ); /* Ruhezustand: flache Linie. Bewegung kommt per JS */
+        will-change: transform;
+      }
+
+      /* ============ Unterseiten (Work / About / Contact) ============ */
+      /* Liegen als Ebene über dem Video, damit Video und Windgeräusch beim
+     Seitenwechsel einfach weiterlaufen. Bewusst nur getönt, kein
+     backdrop-filter: Weichzeichnen über bewegtem Video kostet jeden Frame. */
+      /* Übergang: Ein weicher, dunkler Nebel quillt aus dem Pusteblumen-Kopf und
+     füllt den Raum, während die Samen vom Wind davongetragen werden.
+     --r ist registriert, damit der Browser den Radius der Maske animieren kann. */
+      @property --r {
+        syntax: "<length>";
+        inherits: false;
+        initial-value: 0px;
+      }
+      .pages {
+        position: fixed;
+        inset: 0;
+        z-index: 1;
+        background: rgba(14, 14, 14, 0.72);
+        --r: 0px;
+        -webkit-mask-image: radial-gradient(
+          circle at var(--ox) var(--oy),
+          #000 calc(var(--r) - 24vmax),
+          transparent var(--r)
+        );
+        mask-image: radial-gradient(
+          circle at var(--ox) var(--oy),
+          #000 calc(var(--r) - 24vmax),
+          transparent var(--r)
+        );
+        visibility: hidden;
+        transition:
+          --r 1.15s cubic-bezier(0.7, 0, 0.25, 1) 0.25s,
+          visibility 0s linear 1.4s,
+          background 0.9s var(--ease);
+      }
+      .pages.open {
+        visibility: visible;
+        --r: 118vmax;
+        transition:
+          --r 1.6s cubic-bezier(0.2, 0.75, 0.15, 1),
+          visibility 0s,
+          background 0.9s var(--ease);
+      }
+      /* Kino: Projekt mit Film öffnet — das Licht geht aus, schnell und fast auf Schwarz */
+      .pages.cinema {
+        background: rgba(4, 4, 4, 0.96);
+        transition:
+          --r 1.6s cubic-bezier(0.2, 0.75, 0.15, 1),
+          visibility 0s,
+          background 0.45s cubic-bezier(0.4, 0, 0.2, 1);
+      }
+      #seeds {
+        position: fixed;
+        inset: 0;
+        width: 100%;
+        height: 100%;
+        z-index: 1;
+        pointer-events: none;
+      }
+
+      .page {
+        position: absolute;
+        inset: 0;
+        overflow-y: auto;
+        overscroll-behavior: contain;
+        padding: calc(var(--pad) + 72px) var(--pad) calc(var(--pad) + 72px);
+        /* Inhalt läuft unter Nav und Sound-Schalter weich aus, statt sie zu überlappen */
+        -webkit-mask-image: linear-gradient(
+          transparent 0,
+          transparent calc(var(--pad) + 14px),
+          #000 calc(var(--pad) + 52px),
+          #000 calc(100% - var(--pad) - 56px),
+          transparent 100%
+        );
+        mask-image: linear-gradient(
+          transparent 0,
+          transparent calc(var(--pad) + 14px),
+          #000 calc(var(--pad) + 52px),
+          #000 calc(100% - var(--pad) - 56px),
+          transparent 100%
+        );
+        visibility: hidden;
+        --enter: 0.55s;
+      }
+      .page.open,
+      .page.leave {
+        visibility: visible;
+      }
+      .page.leave {
+        pointer-events: none;
+      }
+      .page .inner {
+        max-width: 1100px;
+      }
+      /* Work / About / Contact: Spalte zentriert (Test — zum Rückgängigmachen diese Regel löschen) */
+      .page:not(.project) .inner {
+        margin-left: auto;
+        margin-right: auto;
+      }
+
+      /* Buchstaben der Überschrift landen wie Samen: aus dem Wind, unscharf, gedreht.
+     Beim Verlassen weht der Wind sie nach rechts oben weiter.                   */
+      .ch {
+        display: inline-block;
+        white-space: pre;
+        opacity: 0;
+        filter: blur(12px);
+        transform: translate3d(-0.45em, 0.3em, 0) rotate(-16deg);
+        transition:
+          opacity 0.9s var(--ease),
+          transform 1.2s var(--ease),
+          filter 1s var(--ease);
+        transition-delay: calc(var(--enter) + var(--i) * 55ms);
+      }
+      .page.open .ch {
+        opacity: 1;
+        filter: blur(0);
+        transform: none;
+      }
+      .page.leave .ch {
+        opacity: 0;
+        filter: blur(10px);
+        transform: translate3d(1em, -0.6em, 0) rotate(20deg);
+        transition-duration: 0.55s, 0.7s, 0.55s;
+        transition-timing-function: cubic-bezier(0.5, 0, 0.75, 0);
+        transition-delay: calc(var(--i) * 30ms);
+      }
+      /* Restlicher Inhalt: gestaffelt einschweben, beim Gehen kurz verwehen */
+      .rv {
+        opacity: 0;
+        filter: blur(6px);
+        transform: translate3d(0, 22px, 0);
+        transition:
+          opacity 0.8s var(--ease),
+          transform 1s var(--ease),
+          filter 0.8s var(--ease);
+        transition-delay: calc(var(--enter) + 0.25s + var(--d) * 70ms);
+      }
+      .page.open .rv {
+        opacity: 1;
+        filter: blur(0);
+        transform: none;
+      }
+      .page.leave .rv {
+        opacity: 0;
+        filter: blur(6px);
+        transform: translate3d(24px, -10px, 0);
+        transition-duration: 0.4s;
+        transition-timing-function: ease-in;
+        transition-delay: calc(var(--d) * 18ms);
+      }
+
+      .page h2 {
+        font-family: var(--serif);
+        font-optical-sizing: auto;
+        font-size: clamp(72px, 12vw, 176px);
+        font-weight: 400;
+        letter-spacing: -0.025em;
+        line-height: 0.9;
+        margin-bottom: clamp(32px, 5vw, 64px);
+        outline: none;
+        /* Die Buchstaben (.ch, inline-block) ragen über die Zeilenhöhe nach oben
+       und lagen sonst über dem Close-Button — Überschrift ist nicht klickbar. */
+        pointer-events: none;
+      }
+      .page p {
+        font-size: clamp(16px, 1.25vw, 19px);
+        line-height: 1.6;
+        color: var(--ink-dim);
+        max-width: 36em;
+      }
+      .page p.mono {
+        font-size: var(--mono-size);
+        line-height: 1.7;
+      }
+      .page p.lead {
+        font-family: var(--serif);
+        font-optical-sizing: auto;
+        font-size: clamp(28px, 3.2vw, 46px);
+        line-height: 1.15;
+        letter-spacing: -0.01em;
+        color: var(--ink);
+        max-width: 22em;
+      }
+      .page a {
+        color: inherit;
+      }
+      .label {
+        color: var(--ink-dim);
+        display: block;
+        margin-bottom: 14px;
+      }
+      .rule {
+        border-top: 1px solid rgba(255, 255, 255, 0.22);
+      }
+
+      /* Work: Index-Liste */
+      .projects {
+        list-style: none;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.22);
+      }
+      .projects li {
+        border-top: 1px solid rgba(255, 255, 255, 0.22);
+      }
+      .projects a {
+        display: grid;
+        grid-template-columns: 3.5em 1fr auto;
+        column-gap: 16px;
+        row-gap: 6px;
+        align-items: baseline;
+        padding: clamp(18px, 2.2vw, 28px) 0;
+        text-decoration: none;
+      }
+      .projects h3 {
+        transition: transform 0.5s var(--ease);
+      }
+      .projects a:hover h3,
+      .projects a:focus-visible h3 {
+        transform: translateX(10px);
+      }
+      .projects h3 {
+        font-family: var(--serif);
+        font-optical-sizing: auto;
+        font-size: clamp(30px, 3.4vw, 48px);
+        font-weight: 400;
+        letter-spacing: -0.01em;
+        line-height: 1;
+      }
+      .projects .num,
+      .projects .meta {
+        color: var(--ink-dim);
+      }
+      .projects p {
+        grid-column: 2 / -1;
+        font-size: clamp(15px, 1.1vw, 17px);
+      }
+      @media (max-width: 600px) {
+        .projects a {
+          grid-template-columns: 2.5em 1fr;
+        }
+        .projects .meta {
+          grid-column: 2;
+        }
+      }
+
+      /* About: Spalten */
+      .cols {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 32px var(--pad);
+        margin-top: clamp(40px, 6vw, 80px);
+        padding-top: 24px;
+      }
+      @media (min-width: 701px) {
+        /* Spalten so breit wie ihr Inhalt, Abstände gleich verteilt:
+           die Gruppe steht insgesamt mittig, Tools schließt rechts bündig ab */
+        .cols { grid-template-columns: repeat(3, auto); justify-content: space-between; }
+      }
+      .cols ul {
+        list-style: none;
+        font-size: 16px;
+        line-height: 1.6;
+      }
+
+      /* About: Text + Foto, Lebenslauf */
+      .about-top {
+        display: grid;
+        grid-template-columns: 1fr minmax(180px, 300px);
+        gap: var(--pad);
+        align-items: start;
+      }
+      .about-top p + p {
+        margin-top: 1.2em;
+      }
+      .portrait {
+        width: 100%;
+        aspect-ratio: 4 / 5;
+        object-fit: cover;
+        object-position: 60% 20%;
+        display: block;
+        filter: grayscale(1) contrast(1.05);
+        transition: filter 0.8s var(--ease);
+      }
+      .portrait:hover {
+        filter: none;
+      }
+      .cv li + li {
+        margin-top: 18px;
+      }
+      .cv .when {
+        display: block;
+        color: var(--ink-dim);
+        margin-bottom: 2px;
+      }
+      .cv .what {
+        display: block;
+        color: var(--ink-dim);
+      }
+      @media (max-width: 700px) {
+        .about-top {
+          grid-template-columns: 1fr;
+        }
+        .portrait {
+          max-width: 320px;
+        }
+      }
+
+      /* ============ Projektseiten ============
+     Gedacht wie ein Kurzfilm: Titel, Abspann-Credits, Film, dann Kapitel
+     mit je einem großen Satz und einem versetzten Absatz.                  */
+      .project .inner {
+        max-width: 1280px;
+      }
+      .project .lead {
+        max-width: 20em;
+        margin-top: clamp(40px, 6vw, 80px);
+      }
+      .project h2 + .pj-film,
+      .project h2 + .pj-phones {
+        margin-top: clamp(8px, 2vw, 24px);
+      }
+
+      /* Zap: drei Mockups als schwebende Komposition — Mitte groß, Seiten zurückgesetzt.
+     Jedes Telefon liegt auf einer eigenen Tiefe der Maus-Parallaxe.           */
+      .pj-phones {
+        --h: min(
+          30vw,
+          480px
+        ); /* drei Telefone ≈ 2,3 × Höhe breit: passt immer in die Zeile */
+        display: flex;
+        justify-content: center;
+        align-items: flex-end;
+        gap: clamp(6px, 2.4vw, 40px);
+        margin-bottom: clamp(24px, 4vw, 56px);
+      }
+      .pj-phones figure {
+        translate: calc(var(--px, 0) * var(--depth))
+          calc(var(--py, 0) * var(--depth));
+      }
+      .pj-phones figure:nth-child(1) {
+        --depth: 10px;
+        margin-bottom: calc(var(--h) * 0.1);
+      }
+      .pj-phones figure:nth-child(2) {
+        --depth: 24px;
+      }
+      .pj-phones figure:nth-child(3) {
+        --depth: 14px;
+        margin-bottom: calc(var(--h) * 0.16);
+      }
+      .pj-phones img {
+        display: block;
+        height: var(--h);
+        width: auto;
+        animation: float 7s ease-in-out infinite;
+      }
+      .pj-phones figure:nth-child(2) img {
+        height: calc(var(--h) * 1.14);
+      }
+      .pj-phones figure:nth-child(2) img {
+        animation-delay: -2.3s;
+      }
+      .pj-phones figure:nth-child(3) img {
+        animation-delay: -4.6s;
+      }
+      .pj-phones figcaption {
+        text-align: center;
+        color: var(--ink-dim);
+        margin-top: 6px;
+      }
+      @keyframes float {
+        50% {
+          transform: translateY(-12px);
+        }
+      }
+      @media (prefers-reduced-motion: reduce) {
+        .pj-phones img {
+          animation: none;
+        }
+      }
+
+      /* Hochkant-Film zentriert, ohne Beiwerk */
+      .pj-film.solo {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+      }
+      .pj-film.solo .film {
+        width: min(340px, 100%);
+      }
+
+      /* Credits-Zeile */
+      .pj-facts {
+        display: grid;
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        gap: 24px var(--pad);
+        margin-top: clamp(36px, 5vw, 64px);
+        padding-top: 18px;
+        border-top: 1px solid rgba(255, 255, 255, 0.22);
+      }
+      .pj-facts dt {
+        color: var(--ink-dim);
+        margin-bottom: 8px;
+      }
+      .pj-facts dd {
+        font-size: clamp(15px, 1.15vw, 17px);
+        line-height: 1.45;
+      }
+      @media (max-width: 700px) {
+        .pj-facts {
+          grid-template-columns: 1fr 1fr;
+        }
+      }
+
+      /* Film: eigener Player, keine Browser-Bedienelemente */
+      .pj-film {
+        margin: clamp(48px, 8vw, 120px) 0;
+      }
+      /* Kino-Auftritt: der Film übernimmt selbst (per JS), die .rv-Staffelung pausiert */
+      .pj-film.rv.cine {
+        opacity: 1;
+        filter: none;
+        transform: none;
+        transition: none;
+      }
+      .film.grow {
+        will-change: transform, opacity;
+      }
+      /* Projektseiten: Titel deutlich kleiner als auf Work/About/Contact —
+     der Film ist der Hauptdarsteller, der Titel nur seine Beschriftung.   */
+      .project h2 {
+        font-size: clamp(44px, 5.4vw, 92px);
+        line-height: 1;
+        margin-bottom: clamp(18px, 2.4vw, 32px);
+      }
+      @media (min-width: 701px) {
+        /* Die ganze Projektseite steht in einer zentrierten Spalte von Filmbreite.
+       Die Breite ergibt sich aus der Fensterhöhe, damit der Film unter dem
+       Titel vollständig ins Bild passt — wie eine Leinwand.                  */
+        .project .inner {
+          max-width: none;
+          margin: 0 auto;
+          width: min(100%, calc((100svh - 330px) * 16 / 9));
+          min-width: min(100%, 640px);
+        }
+      }
+      @media (max-width: 700px) {
+        /* mobil: Film randlos über die volle Breite */
+        .project h2 + .pj-film .film {
+          margin: 0 calc(var(--pad) * -1);
+        }
+        .project h2 + .pj-film figcaption {
+          margin-top: 12px;
+        }
+      }
+      .film {
+        position: relative;
+        overflow: hidden;
+        background: #0c0c0c;
+      }
+      .film video {
+        display: block;
+        width: 100%;
+        height: auto;
+      }
+      .film-hit {
+        all: unset;
+        position: absolute;
+        inset: 0;
+        display: grid;
+        place-items: center;
+      }
+      .film-hit .mono {
+        width: 104px;
+        height: 104px;
+        border-radius: 50%;
+        display: grid;
+        place-items: center;
+        border: 1px solid rgba(255, 255, 255, 0.7);
+        color: #fff;
+        background: rgba(0, 0, 0, 0.18);
+        transition:
+          transform 0.6s var(--ease),
+          opacity 0.4s,
+          background 0.4s;
+      }
+      .film-hit:hover .mono {
+        transform: scale(1.08);
+        background: rgba(0, 0, 0, 0.32);
+      }
+      .film.playing .film-hit .mono {
+        opacity: 0;
+      }
+      .film.playing .film-hit:hover .mono {
+        opacity: 1;
+      }
+      .film-bar {
+        position: absolute;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        height: 14px;
+        cursor: pointer;
+      }
+      .film-bar i {
+        position: absolute;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        height: 1px;
+        background: #fff;
+        transform-origin: left;
+        transform: scaleX(0);
+      }
+      .film-bar::before {
+        content: "";
+        position: absolute;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        height: 1px;
+        background: rgba(255, 255, 255, 0.2);
+      }
+      .pj-film figcaption {
+        display: flex;
+        justify-content: space-between;
+        gap: 16px;
+        color: var(--ink-dim);
+        margin-top: 14px;
+      }
+      .pj-film figcaption a {
+        color: var(--ink);
+        text-decoration: none;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.4);
+      }
+
+      /* Hochkant-Film (Zap): Film links, Satz rechts */
+      .pj-film.tall {
+        display: grid;
+        grid-template-columns: minmax(220px, 340px) 1fr;
+        gap: var(--pad);
+        align-items: end;
+      }
+      .pj-film.tall .pj-big {
+        margin-bottom: 8px;
+      }
+      @media (max-width: 700px) {
+        .pj-film.tall {
+          grid-template-columns: 1fr;
+        }
+        .pj-film.tall .film {
+          max-width: 300px;
+        }
+      }
+
+      /* Kapitel */
+      .pj-ch {
+        padding: clamp(72px, 11vw, 160px) 0 0;
+      }
+      .pj-no {
+        display: block;
+        color: var(--ink-dim);
+        margin-bottom: clamp(18px, 2.5vw, 32px);
+      }
+      .page .pj-big {
+        font-family: var(--serif);
+        font-optical-sizing: auto;
+        font-size: clamp(36px, 5.4vw, 84px);
+        line-height: 1.02;
+        letter-spacing: -0.02em;
+        max-width: 15em;
+        color: var(--ink);
+      }
+      .pj-body {
+        margin: clamp(28px, 4vw, 56px) 0 0 auto;
+        max-width: 34em;
+        width: 100%;
+      }
+      .pj-body p + p {
+        margin-top: 1em;
+      }
+      @media (min-width: 900px) {
+        .pj-body {
+          width: 50%;
+        }
+      }
+
+      /* Bilder: großzügig, mit weichem Aufzoomen beim Hereinscrollen */
+      .pj-img {
+        margin: clamp(48px, 8vw, 120px) 0 0;
+      }
+      .pj-img .frame {
+        overflow: hidden;
+      }
+      .pj-img img {
+        display: block;
+        width: 100%;
+        height: auto;
+        transform: scale(1.06);
+        transition: transform 1.8s var(--ease);
+      }
+      .pj-img.seen img {
+        transform: none;
+      }
+      .pj-img figcaption {
+        color: var(--ink-dim);
+        margin-top: 14px;
+        max-width: 60em;
+        line-height: 1.6;
+      }
+      .paper {
+        background: #f3f3f1;
+        padding: clamp(10px, 2vw, 28px);
+      }
+
+      /* Ablauf als typografische Kette (statt Pfeilzeichen) */
+      .chain {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 10px 0;
+        margin-top: 14px;
+        color: var(--ink-dim);
+      }
+      .chain span + span::before {
+        content: "";
+        display: inline-block;
+        width: clamp(24px, 4vw, 64px);
+        height: 1px;
+        margin: 0 14px;
+        background: rgba(255, 255, 255, 0.5);
+        vertical-align: middle;
+      }
+
+      .pj-file {
+        display: grid;
+        grid-template-columns: 3.5em minmax(0, 1fr) auto;
+        gap: var(--pad);
+        align-items: baseline;
+        margin-top: clamp(28px, 4vw, 48px);
+        padding: 24px 0;
+        text-decoration: none;
+        border-top: 1px solid rgba(255, 255, 255, 0.22);
+        border-bottom: 1px solid rgba(255, 255, 255, 0.22);
+      }
+      .pj-file .t {
+        font-family: var(--serif);
+        font-optical-sizing: auto;
+        font-size: clamp(24px, 2.4vw, 34px);
+        transition: transform 0.5s var(--ease);
+      }
+      .pj-file:hover .t {
+        transform: translateX(10px);
+      }
+      .pj-file .mono {
+        color: var(--ink-dim);
+      }
+
+      /* Nächstes Projekt */
+      .pj-next {
+        display: block;
+        margin-top: clamp(80px, 12vw, 180px);
+        padding-top: 24px;
+        text-decoration: none;
+        border-top: 1px solid rgba(255, 255, 255, 0.22);
+      }
+      .pj-next .mono {
+        display: block;
+        color: var(--ink-dim);
+        margin-bottom: 10px;
+      }
+      .pj-next .t {
+        font-family: var(--serif);
+        font-optical-sizing: auto;
+        font-size: clamp(64px, 12vw, 176px);
+        line-height: 0.95;
+        display: inline-block;
+        transition: transform 0.8s var(--ease);
+      }
+      .pj-next:hover .t {
+        transform: translateX(clamp(12px, 2vw, 32px));
+      }
+
+      /* Einblenden beim Scrollen innerhalb einer Seite */
+      .io {
+        opacity: 0;
+        transform: translate3d(0, 40px, 0);
+        filter: blur(6px);
+        transition:
+          opacity 1s var(--ease),
+          transform 1.2s var(--ease),
+          filter 1s var(--ease);
+      }
+      .io.seen {
+        opacity: 1;
+        transform: none;
+        filter: blur(0);
+      }
+      .page.leave .io {
+        opacity: 0;
+        transition-duration: 0.4s;
+      }
+
+      /* Contact */
+      .mail {
+        display: inline-block;
+        font-family: var(--serif);
+        font-optical-sizing: auto;
+        font-size: clamp(34px, 6.5vw, 96px);
+        font-weight: 400;
+        letter-spacing: -0.02em;
+        text-decoration: none;
+        border-bottom: 1px solid currentColor;
+        padding-bottom: 4px;
+        word-break: break-all;
+      }
+
+      /* 10px höher als der Fluss, damit er klar über dem Ausblendbereich liegt;
+     größere Trefferfläche über Padding, optisch unverändert */
+      .page .close {
+        position: relative;
+        top: -30px;
+        z-index: 1; /* .page davor: schlägt "button.ctl { all: unset }" */
+        padding: 12px 12px 12px 0 !important;
+        margin: -4px 0 clamp(20px, 4vw, 36px);
+      }
+      .page a:focus-visible {
+        outline: 1px solid currentColor;
+        outline-offset: 4px;
+      }
+
+      /* ============ Einblenden ============ */
+      .fade {
+        opacity: 0;
+        transform: translateY(6px);
+        animation: in 0.9s var(--ease) forwards;
+      }
+      nav.fade,
+      .lang.fade {
+        animation-delay: 0.45s;
+      }
+      footer.fade {
+        animation-delay: 0.7s;
+      }
+      @keyframes in {
+        to {
+          opacity: 1;
+          transform: none;
+        }
+      }
+
+      /* ============ Custom Cursor (nur Maus) ============ */
+      .cursor {
+        display: none;
+      }
+      @media (pointer: fine) {
+        /* !important: sonst setzen Buttons (cursor: pointer) und Scrollbereiche
+       wieder den System-Zeiger durch. Sichtbar bleibt nur der Kreis.        */
+        html,
+        html *,
+        html *::before,
+        html *::after {
+          cursor: none !important;
+        }
+        .cursor {
+          display: block;
+          position: fixed;
+          left: 0;
+          top: 0;
+          z-index: 9;
+          pointer-events: none;
+          width: 14px;
+          height: 14px;
+          margin: -7px 0 0 -7px;
+          border-radius: 50%;
+          background: #fff;
+          border: 1px solid transparent;
+          box-shadow: 0 0 12px rgba(0, 0, 0, 0.3);
+          opacity: 0;
+          will-change: transform;
+          transition:
+            width 0.3s var(--ease),
+            height 0.3s var(--ease),
+            margin 0.3s var(--ease),
+            background 0.3s var(--ease),
+            opacity 0.3s;
+        }
+        .cursor.on {
+          opacity: 0.95;
+        }
+        /* Über einem Link wird aus dem Punkt ein Ring, sonst verdeckt der weiße
+       Kreis den weißen Text darunter. */
+        .cursor.big {
+          width: 42px;
+          height: 42px;
+          margin: -21px 0 0 -21px;
+          background: transparent;
+          border-color: #fff;
+        }
+      }
+
+      /* ============ Screenreader-Überschrift ============ */
+      .sr {
+        position: absolute;
+        width: 1px;
+        height: 1px;
+        overflow: hidden;
+        clip-path: inset(50%);
+        white-space: nowrap;
+      }
+
+      @media (prefers-reduced-motion: reduce) {
+        .fade {
+          animation: none;
+          opacity: 1;
+          transform: none;
+        }
+        .stage video {
+          transition: none;
+        }
+        nav a::after {
+          transition: none;
+        }
+        .stage,
+        .pages,
+        .pages.open,
+        .ch,
+        .rv,
+        .io,
+        .pj-img img {
+          transition: none !important;
+        }
+        .io {
+          opacity: 1 !important;
+          transform: none !important;
+          filter: none !important;
+        }
+        .pj-img img {
+          transform: none;
+        }
+        body.in-page .stage {
+          transform: none;
+        }
+        .ch,
+        .rv {
+          filter: none !important;
+          transform: none !important;
+        }
+      }
+    </style>
+  </head>
+
+  <body>
+    <div class="stage">
+      <!-- src wird per JS gesetzt: passende Auflösung, Portrait-Schnitt, Fallback-Stufen -->
+      <video
+        id="bg"
+        muted
+        loop
+        playsinline
+        preload="auto"
+        disablepictureinpicture
+        disableremoteplayback
+        controlslist="nodownload noplaybackrate"
+        oncontextmenu="return false;"
+        aria-hidden="true"
+        tabindex="-1"
+      ></video>
+    </div>
+
+    <!-- Windgeräusch getrennt vom Video: die Videodateien tragen keine Tonspur,
+       dadurch kleiner, und der Ton bricht beim Umschalten der Qualität nicht ab. -->
+    <audio id="wind" loop preload="none">
+      <source src="media/wind.webm" type="audio/webm; codecs=opus" />
+      <source src="media/wind.m4a" type="audio/mp4; codecs=mp4a.40.2" />
+    </audio>
+
+    <div class="ui">
+      <div class="lang fade" role="group" aria-label="Language">
+        <button class="ctl mono" data-lang="en" aria-pressed="true">EN</button
+        ><span class="mono" aria-hidden="true">/</span
+        ><button class="ctl mono" data-lang="de" aria-pressed="false">
+          DE
+        </button>
+      </div>
+      <nav class="fade" aria-label="Main">
+        <a href="#work">Work</a>
+        <a href="#about">About</a>
+        <a href="#contact">Contact</a>
+      </nav>
+
+      <div></div>
+
+      <footer class="fade">
+        <button
+          class="ctl"
+          id="sound"
+          aria-pressed="false"
+          aria-label="Turn wind sound on"
+        >
+          <span class="wave" aria-hidden="true"
+            ><i></i><i></i><i></i><i></i><i></i
+          ></span>
+        </button>
+      </footer>
+    </div>
+
+    <!-- Unterseiten: per Hash erreichbar (#work, #work/zap, #about, #contact …) -->
+    <h1 class="sr">Marlon — Media &amp; Interaction Design, Osnabrück</h1>
+    <main class="pages" id="pages">
+      <section class="page" id="work" aria-labelledby="work-h" inert>
+        <div class="inner">
+          <button class="ctl mono close" data-close>← Close</button>
+          <h2 id="work-h" tabindex="-1">Work</h2>
+          <ol class="projects">
+            <li>
+              <a href="#work/zap">
+                <span class="num mono">01</span>
+                <h3>Zap</h3>
+                <span class="meta mono">UX / UI · 2026</span>
+                <p>
+                  Shop and meet in one app — what you buy shapes who you meet.
+                </p>
+              </a>
+            </li>
+            <li>
+              <a href="#work/memories">
+                <span class="num mono">02</span>
+                <h3>memories</h3>
+                <span class="meta mono">3D Animation · 2026</span>
+                <p>
+                  A short 3D film about nostalgia — the kind that makes you
+                  idealize the past a little too much.
+                </p>
+              </a>
+            </li>
+            <li>
+              <a href="#work/hotdawgs">
+                <span class="num mono">03</span>
+                <h3>HotDawgs</h3>
+                <span class="meta mono">3D Game / Unity · 2026</span>
+                <p>
+                  A 3D hot dog stand simulator. Simple premise, surprisingly
+                  stressful.
+                </p>
+              </a>
+            </li>
+          </ol>
+        </div>
+      </section>
+
+      <section
+        class="page project"
+        id="work-zap"
+        aria-labelledby="work-zap-h"
+        inert
+      >
+        <div class="inner">
+          <a class="ctl mono close" href="#work">← Work</a>
+          <h2 id="work-zap-h" tabindex="-1">Zap</h2>
+          <div class="pj-phones rv">
+            <figure>
+              <img src="media/work/zap-profile.png" alt="Zap profile screen" />
+              <figcaption class="mono">Profile</figcaption>
+            </figure>
+            <figure>
+              <img src="media/work/zap-chats.png" alt="Zap chats screen" />
+              <figcaption class="mono">Chats</figcaption>
+            </figure>
+            <figure>
+              <img src="media/work/zap-shop.png" alt="Zap shopping screen" />
+              <figcaption class="mono">Shop</figcaption>
+            </figure>
+          </div>
+          <p class="lead">
+            Shopping and connecting, in one app. What you buy shapes who you
+            meet.
+          </p>
+          <dl class="pj-facts">
+            <div>
+              <dt class="mono">Year</dt>
+              <dd>2026</dd>
+            </div>
+            <div>
+              <dt class="mono">Discipline</dt>
+              <dd>UX / UI</dd>
+            </div>
+            <div>
+              <dt class="mono">Team</dt>
+              <dd>Duo project</dd>
+            </div>
+            <div>
+              <dt class="mono">Tools</dt>
+              <dd>Figma, Jitter</dd>
+            </div>
+          </dl>
+          <section class="pj-ch io">
+            <span class="pj-no mono">Idea</span>
+            <p class="pj-big">Style is identity.</p>
+            <div class="pj-body">
+              <p>
+                Shopping and dating don’t seem to belong together. In Zap, they
+                feed each other: the clothes you buy shape the people you’re
+                shown, whether for dating or friendship. Similar style becomes
+                the icebreaker. Know the clothes, know the people.
+              </p>
+            </div>
+          </section>
+          <figure class="pj-film solo io">
+            <div class="film" data-film>
+              <video
+                playsinline
+                preload="metadata"
+                poster="media/work/zap-poster.jpg"
+              >
+                <source src="media/work/zap.mp4" type="video/mp4" /></video
+              ><button class="film-hit" aria-label="Play film">
+                <span class="mono">Play</span>
+              </button>
+              <div class="film-bar"><i></i></div>
+            </div>
+            <figcaption class="mono">Prototype walkthrough</figcaption>
+          </figure>
+          <figure class="pj-img io">
+            <div class="frame">
+              <div class="paper">
+                <img
+                  src="media/work/zap-user-journey.png"
+                  alt="User journey map"
+                  loading="lazy"
+                />
+              </div>
+            </div>
+            <figcaption class="mono">
+              Research — lower the stakes. Liking someone’s jacket feels less
+              exposed than liking their face.
+            </figcaption>
+          </figure>
+          <a class="pj-next io" href="#work/memories"
+            ><span class="mono">Next project</span
+            ><span class="t">memories</span></a
+          >
+        </div>
+      </section>
+
+      <section
+        class="page project"
+        id="work-memories"
+        aria-labelledby="work-memories-h"
+        inert
+      >
+        <div class="inner">
+          <a class="ctl mono close" href="#work">← Work</a>
+          <h2 id="work-memories-h" tabindex="-1">memories</h2>
+          <figure class="pj-film rv">
+            <div class="film" data-film>
+              <video
+                playsinline
+                preload="metadata"
+                poster="media/work/memories-poster.jpg"
+              >
+                <source src="media/work/memories.mp4" type="video/mp4" /></video
+              ><button class="film-hit" aria-label="Play film">
+                <span class="mono">Play</span>
+              </button>
+              <div class="film-bar"><i></i></div>
+            </div>
+            <figcaption class="mono">
+              <span>3D short film, 2026</span
+              ><a
+                href="https://www.youtube.com/watch?v=xzEFtl21Yr8"
+                target="_blank"
+                rel="noopener"
+                >Watch on YouTube</a
+              >
+            </figcaption>
+          </figure>
+          <p class="lead">
+            A short film about nostalgia — the kind that makes you idealize the
+            past a little too much.
+          </p>
+          <dl class="pj-facts">
+            <div>
+              <dt class="mono">Year</dt>
+              <dd>2026</dd>
+            </div>
+            <div>
+              <dt class="mono">Discipline</dt>
+              <dd>3D Animation</dd>
+            </div>
+            <div>
+              <dt class="mono">Team</dt>
+              <dd>Solo</dd>
+            </div>
+            <div>
+              <dt class="mono">Tools</dt>
+              <dd>Blender, After Effects, DaVinci Resolve</dd>
+            </div>
+          </dl>
+          <section class="pj-ch io">
+            <span class="pj-no mono">Approach</span>
+            <p class="pj-big">
+              Dwelling in memories is beautiful — until you get lost in them.
+            </p>
+          </section>
+          <figure class="pj-img io">
+            <div class="frame">
+              <img
+                src="media/work/memories-timeline.jpg"
+                alt="After Effects timeline"
+                loading="lazy"
+              />
+            </div>
+            <figcaption class="mono">
+              Compositing — 80+ layers in After Effects
+            </figcaption>
+          </figure>
+          <a class="pj-next io" href="#work/hotdawgs"
+            ><span class="mono">Next project</span
+            ><span class="t">HotDawgs</span></a
+          >
+        </div>
+      </section>
+
+      <section
+        class="page project"
+        id="work-hotdawgs"
+        aria-labelledby="work-hotdawgs-h"
+        inert
+      >
+        <div class="inner">
+          <a class="ctl mono close" href="#work">← Work</a>
+          <h2 id="work-hotdawgs-h" tabindex="-1">HotDawgs</h2>
+          <figure class="pj-film rv">
+            <div class="film" data-film>
+              <video
+                playsinline
+                preload="metadata"
+                poster="media/work/hotdawgs-poster.jpg"
+              >
+                <source src="media/work/hotdawgs.mp4" type="video/mp4" /></video
+              ><button class="film-hit" aria-label="Play film">
+                <span class="mono">Play</span>
+              </button>
+              <div class="film-bar"><i></i></div>
+            </div>
+            <figcaption class="mono">In-game footage</figcaption>
+          </figure>
+          <p class="lead">
+            A hot dog stand simulator. Simple premise, surprisingly stressful.
+          </p>
+          <dl class="pj-facts">
+            <div>
+              <dt class="mono">Year</dt>
+              <dd>2026</dd>
+            </div>
+            <div>
+              <dt class="mono">Discipline</dt>
+              <dd>3D Game</dd>
+            </div>
+            <div>
+              <dt class="mono">Team</dt>
+              <dd>Duo — environment &amp; code</dd>
+            </div>
+            <div>
+              <dt class="mono">Tools</dt>
+              <dd>Unity, C#</dd>
+            </div>
+          </dl>
+          <section class="pj-ch io">
+            <span class="pj-no mono">Under the hood</span>
+            <p class="pj-big">
+              Every customer is an agent with a life of its own.
+            </p>
+            <p class="chain mono">
+              <span>Spawning</span><span>Routing</span><span>Waiting</span
+              ><span>Leaving</span>
+            </p>
+          </section>
+          <figure class="pj-img io">
+            <div class="frame">
+              <img
+                src="media/work/hotdawgs-navmesh.jpg"
+                alt="NavMesh visualization in Unity"
+                loading="lazy"
+              />
+            </div>
+            <figcaption class="mono">
+              Customer pathfinding — NavMesh in Unity
+            </figcaption>
+          </figure>
+          <a
+            class="pj-file io"
+            href="media/work/hotdawgs-documentation.pdf"
+            download="HotDawgs_Projektbericht.pdf"
+            ><span class="mono">PDF</span
+            ><span class="t">Project documentation</span
+            ><span class="mono">German · 1.8 MB</span></a
+          >
+          <a class="pj-next io" href="#work/zap"
+            ><span class="mono">Next project</span><span class="t">Zap</span></a
+          >
+        </div>
+      </section>
+
+      <section class="page" id="about" aria-labelledby="about-h" inert>
+        <div class="inner">
+          <button class="ctl mono close" data-close>← Close</button>
+          <h2 id="about-h" tabindex="-1">About</h2>
+          <div class="about-top">
+            <div>
+              <p class="lead">
+                I’m a Media and Interaction Design student based in Osnabrück,
+                currently enrolled in my fifth semester. I love bringing my
+                ideas to life and presenting them in creative ways.
+              </p>
+              <p>
+                Besides my studies I’m working as a Community Manager overseeing
+                social media accounts of brands such as Condor, OBI and DGB. At
+                some point, I would love to be involved in productions such as
+                films, as storytelling and conveying emotions are my greatest
+                passions.
+              </p>
+            </div>
+            <div class="rv">
+              <img
+                class="portrait"
+                src="media/portrait.jpg"
+                alt="Marlon"
+                loading="lazy"
+              />
+            </div>
+          </div>
+          <div class="cols rule">
+            <div>
+              <span class="label mono">Education</span>
+              <ul class="cv">
+                <li>
+                  <span class="when mono">10/2024 — Present</span>Hochschule
+                  Osnabrück<span class="what"
+                    >Media and Interaction Design</span
+                  >
+                </li>
+                <li>
+                  <span class="when mono">2014 — 2023</span>Gymnasium
+                  Harsewinkel<span class="what">Allgemeine Hochschulreife</span>
+                </li>
+              </ul>
+            </div>
+            <div>
+              <span class="label mono">Experience</span>
+              <ul class="cv">
+                <li>
+                  <span class="when mono">08/2024 — Present</span>MUUUH!
+                  Group<span class="what">Community Manager</span>
+                </li>
+                <li>
+                  <span class="when mono">05/2024 — 08/2024</span>WÖRK.APP<span
+                    class="what"
+                    >Social Media Manager — Intern</span
+                  >
+                </li>
+                <li>
+                  <span class="when mono">04/2023 — 10/2023</span>Hotel-Residenz
+                  Klosterpforte<span class="what">Waiter</span>
+                </li>
+              </ul>
+            </div>
+            <div>
+              <span class="label mono">Tools</span>
+              <ul>
+                <li>Figma</li>
+                <li>Jitter</li>
+                <li>Blender</li>
+                <li>After Effects</li>
+                <li>DaVinci Resolve</li>
+                <li>Unity / C#</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="page" id="contact" aria-labelledby="contact-h" inert>
+        <div class="inner">
+          <button class="ctl mono close" data-close>← Close</button>
+          <h2 id="contact-h" tabindex="-1">Contact</h2>
+          <p class="lead" style="margin-bottom: clamp(28px, 4vw, 48px)">
+            Projects, internships or just a hello — write me.
+          </p>
+          <a class="mail" href="mailto:marlon.lutete@gmail.com"
+            >marlon.lutete@gmail.com</a
+          >
+          <div
+            class="rule"
+            style="margin-top: clamp(48px, 7vw, 96px); padding-top: 24px"
+          >
+            <span class="label mono">Based in</span>
+            <p>Osnabrück, Germany</p>
+          </div>
+        </div>
+      </section>
+    </main>
+    <canvas id="seeds" aria-hidden="true"></canvas>
+
+    <div class="cursor" id="cursor"></div>
+
+    <script>
+      (() => {
+        "use strict";
+        const $ = (s) => document.querySelector(s);
+        const v = $("#bg");
+
+        /* ====================================================================
+     1. Quellenwahl — so wenig Pixel wie nötig, damit nichts ruckelt
+     ==================================================================== */
+        const SRC = {
+          1080: "media/dandelion-1080.mp4", // 1920×1080
+          720: "media/dandelion-720.mp4", // 1280×720
+          480: "media/dandelion-480.mp4", // 854×480
+          portrait: "media/dandelion-portrait.mp4", // 608×1080, mittig beschnitten
+        };
+
+        function ladder() {
+          const net = navigator.connection || {};
+          const et = net.effectiveType || "";
+          if (net.saveData || et === "slow-2g" || et === "2g" || et === "3g")
+            return ["480"];
+
+          // Hochkant-Handy: der 16:9-Clip wird hier zu ~70 % seitlich weggeschnitten.
+          // Die vorbeschnittene Datei zeigt denselben Ausschnitt mit einem Drittel der Pixel.
+          if (innerHeight > innerWidth && innerWidth <= 700)
+            return ["portrait", "720", "480"];
+
+          // Breite, die "object-fit: cover" tatsächlich füllen muss, in Gerätepixeln
+          const dpr = Math.min(devicePixelRatio || 1, 2);
+          const need = Math.max(innerWidth, (innerHeight * 16) / 9) * dpr;
+          if (need >= 1300) return ["1080", "720", "480"];
+          if (need >= 820) return ["720", "480"];
+          return ["480"];
+        }
+
+        /* ====================================================================
+     2. Abspielen mit Rückfallebenen
+     ==================================================================== */
+        const reduced = matchMedia("(prefers-reduced-motion: reduce)").matches;
+        const steps = ladder();
+        let step = 0,
+          blocked = false,
+          resumeAt = 0;
+
+        function load(i) {
+          step = i;
+          resumeAt = v.currentTime || 0;
+          v.src = SRC[steps[i]];
+          v.load();
+          start();
+        }
+
+        function start() {
+          const p = v.play();
+          if (p && p.catch)
+            p.catch(() => {
+              blocked = true;
+            }); // z. B. iOS-Stromsparmodus
+        }
+
+        function downgrade() {
+          if (step + 1 < steps.length) load(step + 1);
+          else v.classList.remove("is-ready"); // nichts geht mehr: Poster bleibt stehen
+        }
+
+        if (!reduced) {
+          // Position über den Qualitätswechsel hinweg halten
+          v.addEventListener("loadedmetadata", () => {
+            if (resumeAt > 0 && isFinite(v.duration)) {
+              try {
+                v.currentTime = resumeAt % v.duration;
+              } catch (e) {}
+              resumeAt = 0;
+            }
+          });
+          v.addEventListener("playing", () => {
+            blocked = false;
+            v.classList.add("is-ready");
+          });
+          v.addEventListener("error", downgrade);
+
+          load(0);
+
+          // Tab im Hintergrund: anhalten. Spart Akku und verhindert Nachholruckler.
+          document.addEventListener("visibilitychange", () => {
+            if (document.hidden) v.pause();
+            else if (!blocked) start();
+          });
+
+          /* Wächter: prüft, ob die Zeit wirklich weiterläuft. Reagiert damit auch auf
+       Fälle, die kein 'error' auslösen — leerer Puffer, schlafender Decoder,
+       stilles Pausieren nach dem Aufwachen aus dem Standby.                     */
+          let lastT = -1,
+            strikes = 0;
+          setInterval(() => {
+            if (document.hidden || blocked || !v.src) return;
+            if (v.paused) {
+              start();
+              return;
+            }
+            if (v.currentTime === lastT) {
+              if (++strikes === 2) start();
+              if (strikes >= 4) {
+                strikes = 0;
+                downgrade();
+              }
+            } else {
+              strikes = 0;
+            }
+            lastT = v.currentTime;
+          }, 2000);
+
+          // Wenn Autoplay blockiert war: beim ersten Antippen nachstarten
+          const kick = () => {
+            if (blocked) {
+              blocked = false;
+              start();
+            }
+          };
+          ["pointerdown", "keydown", "touchstart"].forEach((e) =>
+            addEventListener(e, kick, { once: true, passive: true }),
+          );
+        }
+
+        /* ====================================================================
+     3a. Klangeffekte — komplett per Web Audio synthetisiert, keine Dateien.
+         Gläserne Glockentöne, leises Luft-Ticken, Windstöße für die Übergänge.
+         Der AudioContext entsteht erst bei der ersten Berührung (Browserregel).
+     ==================================================================== */
+        const SFX = (() => {
+          let ctx, master, verb, noise;
+          function init() {
+            if (ctx) {
+              if (ctx.state === "suspended") ctx.resume();
+              return;
+            }
+            const AC = window.AudioContext || window.webkitAudioContext;
+            if (!AC) return;
+            ctx = new AC();
+            master = ctx.createGain();
+            master.gain.value = 0.8;
+            master.connect(ctx.destination);
+            // Hall aus abklingendem Rauschen: gibt allem einen weiten, luftigen Raum
+            const len = ctx.sampleRate * 2.4,
+              ir = ctx.createBuffer(2, len, ctx.sampleRate);
+            for (let c = 0; c < 2; c++) {
+              const d = ir.getChannelData(c);
+              for (let i = 0; i < len; i++)
+                d[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / len, 3.4);
+            }
+            verb = ctx.createConvolver();
+            verb.buffer = ir;
+            const wet = ctx.createGain();
+            wet.gain.value = 0.4;
+            verb.connect(wet).connect(master);
+            noise = ctx.createBuffer(1, ctx.sampleRate * 2, ctx.sampleRate);
+            const n = noise.getChannelData(0);
+            for (let i = 0; i < n.length; i++) n[i] = Math.random() * 2 - 1;
+          }
+          const out = (node, send) => {
+            node.connect(master);
+            if (send) {
+              const g = ctx.createGain();
+              g.gain.value = send;
+              node.connect(g).connect(verb);
+            }
+          };
+          const live = () => ctx && ctx.state === "running";
+
+          function chime(f, vol = 0.1, delay = 0) {
+            if (!live()) return;
+            const t = ctx.currentTime + delay,
+              g = ctx.createGain();
+            g.gain.setValueAtTime(0, t);
+            g.gain.linearRampToValueAtTime(vol, t + 0.006);
+            g.gain.exponentialRampToValueAtTime(0.0001, t + 1.8);
+            out(g, 0.8);
+            [
+              [f, 1, "sine"],
+              [f * 2.006, 0.3, "sine"],
+              [f * 3.01, 0.08, "triangle"],
+            ].forEach(([fr, a, type]) => {
+              const o = ctx.createOscillator(),
+                ga = ctx.createGain();
+              o.type = type;
+              o.frequency.value = fr;
+              ga.gain.value = a;
+              o.connect(ga).connect(g);
+              o.start(t);
+              o.stop(t + 1.9);
+            });
+          }
+          function tick(vol = 0.05) {
+            if (!live()) return;
+            const t = ctx.currentTime,
+              src = ctx.createBufferSource(),
+              hp = ctx.createBiquadFilter(),
+              g = ctx.createGain();
+            src.buffer = noise;
+            src.playbackRate.value = 0.8 + Math.random() * 0.4;
+            hp.type = "highpass";
+            hp.frequency.value = 3400;
+            g.gain.setValueAtTime(vol, t);
+            g.gain.exponentialRampToValueAtTime(0.0001, t + 0.04);
+            src.connect(hp).connect(g);
+            out(g, 0.25);
+            src.start(t, Math.random());
+            src.stop(t + 0.06);
+          }
+          function whoosh(up = true, dur = 1.5, vol = 0.3) {
+            if (!live()) return;
+            const t = ctx.currentTime,
+              src = ctx.createBufferSource(),
+              bp = ctx.createBiquadFilter(),
+              g = ctx.createGain();
+            src.buffer = noise;
+            src.loop = true;
+            bp.type = "bandpass";
+            bp.Q.value = 0.9;
+            bp.frequency.setValueAtTime(up ? 240 : 2600, t);
+            bp.frequency.exponentialRampToValueAtTime(
+              up ? 2600 : 220,
+              t + dur * 0.85,
+            );
+            g.gain.setValueAtTime(0.0001, t);
+            g.gain.exponentialRampToValueAtTime(vol, t + dur * 0.35);
+            g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+            src.connect(bp).connect(g);
+            let node = g;
+            if (ctx.createStereoPanner) {
+              // der Windstoß zieht hörbar durch den Raum
+              const pan = ctx.createStereoPanner();
+              pan.pan.setValueAtTime(up ? -0.7 : 0.7, t);
+              pan.pan.linearRampToValueAtTime(up ? 0.7 : -0.7, t + dur);
+              g.connect(pan);
+              node = pan;
+            }
+            out(node, 0.5);
+            src.start(t, Math.random());
+            src.stop(t + dur + 0.05);
+          }
+          ["pointerdown", "keydown", "touchstart"].forEach((e) =>
+            addEventListener(e, init, { passive: true, capture: true }),
+          );
+          return { chime, tick, whoosh };
+        })();
+
+        // Pentatonische Töne: jede Unterseite hat ihre eigene Note
+        const NOTE = {
+          work: 659.25,
+          about: 783.99,
+          contact: 987.77,
+          close: 523.25,
+          other: 1046.5,
+        };
+
+        /* ====================================================================
+     3b. Wind — Browser erlauben Ton erst nach einem Klick
+     ==================================================================== */
+        const wind = $("#wind"),
+          btn = $("#sound");
+        let fade;
+        const ramp = (to, done) => {
+          clearInterval(fade);
+          fade = setInterval(() => {
+            const d = to - wind.volume;
+            if (Math.abs(d) < 0.05) {
+              wind.volume = to;
+              clearInterval(fade);
+              if (done) done();
+            } else
+              wind.volume = Math.min(
+                1,
+                Math.max(0, wind.volume + Math.sign(d) * 0.05),
+              );
+          }, 40);
+        };
+        /* Zustand bewusst als eigene Variable, nicht aus dem Audio-Element abgeleitet:
+     scheitert das Abspielen einmal, bliebe der Button sonst dauerhaft hängen. */
+        let soundOn = false;
+        btn.addEventListener("click", () => {
+          soundOn = !soundOn;
+          if (soundOn) {
+            wind.volume = 0;
+            wind.play().catch(() => {});
+            ramp(1);
+          } else ramp(0, () => wind.pause());
+          btn.setAttribute("aria-pressed", String(soundOn));
+          btn.setAttribute("aria-label", soundLabel());
+          if (soundOn) {
+            SFX.chime(NOTE.close, 0.08);
+            SFX.chime(NOTE.about, 0.07, 0.12);
+          } else {
+            SFX.chime(NOTE.about, 0.07);
+            SFX.chime(NOTE.close, 0.06, 0.12);
+          }
+          animateWave();
+        });
+
+        /* Audiowelle: schwingt bei Ton, läuft beim Muten weich zur flachen Linie aus
+     und hält dann ganz an — kein rAF-Loop, solange nichts zu tun ist.          */
+        const bars = [...btn.querySelectorAll(".wave i")];
+        const MIN = 0.12,
+          mid = (bars.length - 1) / 2;
+        const wv = bars.map((_, i) => ({
+          f1: 3.1 + i * 0.9,
+          f2: 5.3 + ((i * 1.7) % 2.3),
+          p: i * 1.3,
+          env: 1 - (Math.abs(i - mid) / bars.length) * 0.9, // mittlere Balken höher
+        }));
+        let amp = 0,
+          waveRaf = null;
+        const waveTick = (now) => {
+          amp += ((soundOn ? 1 : 0) - amp) * 0.07;
+          const t = now / 1000;
+          bars.forEach((b, i) => {
+            const q = wv[i];
+            const n =
+              0.55 +
+              0.25 * Math.sin(t * q.f1 + q.p) +
+              0.2 * Math.sin(t * q.f2 + q.p * 1.7); // 0.1 … 1
+            b.style.transform = `scaleY(${MIN + (1 - MIN) * amp * n * q.env})`;
+          });
+          if (!soundOn && amp < 0.003) {
+            amp = 0;
+            waveRaf = null;
+            bars.forEach((b) => (b.style.transform = ""));
+            return;
+          }
+          waveRaf = requestAnimationFrame(waveTick);
+        };
+        function animateWave() {
+          if (reduced) {
+            // keine Bewegung: nur statisch zwischen Welle und Linie wechseln
+            bars.forEach(
+              (b, i) =>
+                (b.style.transform = soundOn
+                  ? `scaleY(${MIN + (1 - MIN) * 0.75 * wv[i].env})`
+                  : ""),
+            );
+            return;
+          }
+          if (!waveRaf) waveRaf = requestAnimationFrame(waveTick);
+        }
+
+        /* ====================================================================
+     4. Samen — Partikel, die beim Übergang aus der Pusteblume wehen
+     ==================================================================== */
+        const parallax = matchMedia(
+          "(pointer: fine) and (prefers-reduced-motion: no-preference)",
+        ).matches;
+        const cv = $("#seeds"),
+          g2 = cv.getContext("2d"),
+          root = document.documentElement;
+        let seeds = [],
+          seedRaf = null,
+          dpr = 1;
+
+        // Wo sitzt der Pusteblumen-Kopf gerade auf dem Bildschirm? (object-fit: cover nachgerechnet)
+        function head() {
+          const W = innerWidth,
+            H = innerHeight;
+          const portrait = H > W && W <= 700;
+          const vw = portrait ? 608 : 1920,
+            vh = 1080,
+            fx = portrait ? 0.437 : 0.486,
+            fy = 0.709;
+          const k = Math.max(W / vw, H / vh);
+          const z = parallax ? 1.05 : 1; // Video ist für die Parallaxe leicht vergrößert
+          return {
+            x: W / 2 + ((W - vw * k) / 2 + fx * vw * k - W / 2) * z,
+            y: H / 2 + ((H - vh * k) / 2 + fy * vh * k - H / 2) * z,
+            k: k * z,
+          };
+        }
+        function layout() {
+          const h = head();
+          root.style.setProperty("--ox", h.x + "px");
+          root.style.setProperty("--oy", h.y + "px");
+          dpr = Math.min(devicePixelRatio || 1, 2);
+          cv.width = innerWidth * dpr;
+          cv.height = innerHeight * dpr;
+        }
+        layout();
+        addEventListener("resize", layout, { passive: true });
+
+        function burst(mode, from) {
+          if (reduced) return;
+          const h = head(),
+            W = innerWidth,
+            H = innerHeight,
+            now = performance.now();
+          const size = Math.max(0.75, Math.min(h.k, 1.4));
+          if (mode === "film") return filmBurst(from, W, H, now, size);
+          const n = W < 700 ? 45 : 90;
+          for (let i = 0; i < n; i++) {
+            const a = Math.random() * Math.PI * 2,
+              rr = Math.sqrt(Math.random()) * 120 * h.k;
+            const at = { x: h.x + Math.cos(a) * rr, y: h.y + Math.sin(a) * rr };
+            const far = {
+              x: at.x + 160 + Math.random() * W * 0.8,
+              y: at.y - 80 - Math.random() * H * 0.65,
+            };
+            let p0, p2;
+            if (mode === "open") {
+              p0 = at;
+              p2 = far;
+            } // Samen fliegen davon
+            else if (mode === "close") {
+              p0 = { x: at.x - (far.x - at.x), y: far.y };
+              p2 = at;
+            } // … und kehren heim
+            else {
+              p0 = { x: -40, y: Math.random() * H };
+              p2 = { x: W + 40, y: p0.y - Math.random() * H * 0.4 + H * 0.1 };
+            } // Windböe
+            const mx = (p0.x + p2.x) / 2,
+              my = (p0.y + p2.y) / 2;
+            seeds.push({
+              mode,
+              p0,
+              p2,
+              p1: {
+                x: mx + (Math.random() - 0.5) * 260,
+                y: my - Math.random() * 180,
+              },
+              t0: now + Math.random() * (mode === "close" ? 350 : 450),
+              dur: 1300 + Math.random() * 1000,
+              s: (3 + Math.random() * 4.5) * size,
+              rot: Math.random() * 6.28,
+              spin: (Math.random() - 0.5) * 5,
+              wob: Math.random() * 6.28,
+            });
+          }
+          if (!seedRaf) seedRaf = requestAnimationFrame(drawSeeds);
+        }
+
+        /* Projekt öffnet: Das Thumbnail platzt auf wie eine Pusteblume. Die Samen
+     verteilen sich vom Ursprung aus über nahezu den ganzen Bildschirm und
+     treiben mit dem Wind weiter, bis sie verblassen.                          */
+        function filmBurst(from, W, H, now, size) {
+          const cx = from.left + from.width / 2,
+            cy = from.top + from.height / 2;
+          const n = W < 700 ? 90 : 200;
+          for (let i = 0; i < n; i++) {
+            const a = Math.random() * Math.PI * 2,
+              rr = Math.sqrt(Math.random());
+            const p0 = {
+              x: cx + (Math.cos(a) * rr * from.width) / 2,
+              y: cy + (Math.sin(a) * rr * from.height) / 2,
+            };
+            // Zielpunkt irgendwo auf (und etwas jenseits) der Fläche, nach außen gedrückt:
+            // so liegen die Flugbahnen mittendrin über dem gesamten Bildschirm.
+            const tx = -0.15 * W + Math.random() * 1.3 * W,
+              ty = -0.15 * H + Math.random() * 1.3 * H;
+            const p2 = {
+              x: cx + (tx - cx) * 1.6 + W * 0.12,
+              y: cy + (ty - cy) * 1.6 - H * 0.08,
+            };
+            seeds.push({
+              mode: "film",
+              p0,
+              p2,
+              p1: {
+                x: (p0.x + p2.x) / 2 + (Math.random() - 0.5) * 300,
+                y: (p0.y + p2.y) / 2 - Math.random() * 200,
+              },
+              t0: now + Math.random() * 300,
+              dur: 1800 + Math.random() * 1300,
+              s: (3 + Math.random() * 4.5) * size,
+              rot: Math.random() * 6.28,
+              spin: (Math.random() - 0.5) * 5,
+              wob: Math.random() * 6.28,
+            });
+          }
+          if (!seedRaf) seedRaf = requestAnimationFrame(drawSeeds);
+        }
+
+        function drawSeed(x, y, s, rot, alpha) {
+          g2.save();
+          g2.translate(x, y);
+          g2.rotate(rot);
+          g2.globalAlpha = alpha;
+          g2.beginPath();
+          g2.moveTo(0, 0);
+          g2.lineTo(0, s * 1.7); // Stiel
+          for (let j = 0; j < 9; j++) {
+            // Schirmchen (Pappus)
+            const a = -Math.PI / 2 + (j / 8 - 0.5) * 2.6;
+            g2.moveTo(0, 0);
+            g2.lineTo(Math.cos(a) * s, Math.sin(a) * s);
+          }
+          g2.stroke();
+          g2.beginPath();
+          g2.arc(0, s * 1.75, 0.9, 0, 6.28);
+          g2.fill();
+          g2.restore();
+        }
+
+        function drawSeeds(now) {
+          g2.setTransform(dpr, 0, 0, dpr, 0, 0);
+          g2.clearRect(0, 0, innerWidth, innerHeight);
+          g2.strokeStyle = g2.fillStyle = "#fff";
+          g2.lineWidth = 0.6;
+          seeds = seeds.filter((p) => now < p.t0 + p.dur);
+          for (const p of seeds) {
+            const t = (now - p.t0) / p.dur;
+            if (t < 0) continue;
+            const e =
+              p.mode === "open" || p.mode === "film"
+                ? t * 0.55 + (1 - Math.pow(1 - t, 2)) * 0.45 // Endtempo > 0: kein Stillstand vor dem Verschwinden
+                : t < 0.5
+                  ? 4 * t * t * t
+                  : 1 - Math.pow(-2 * t + 2, 3) / 2;
+            const u = 1 - e,
+              flutter = Math.sin(now / 280 + p.wob) * 7 * Math.sin(Math.PI * t);
+            const x =
+              u * u * p.p0.x + 2 * u * e * p.p1.x + e * e * p.p2.x + flutter;
+            const y =
+              u * u * p.p0.y +
+              2 * u * e * p.p1.y +
+              e * e * p.p2.y +
+              flutter * 0.5;
+            drawSeed(
+              x,
+              y,
+              p.s,
+              p.rot + p.spin * t + Math.sin(now / 400 + p.wob) * 0.3,
+              Math.pow(Math.sin(Math.PI * t), 0.7) * 0.9,
+            );
+          }
+          seedRaf = seeds.length ? requestAnimationFrame(drawSeeds) : null;
+          if (!seedRaf) g2.clearRect(0, 0, innerWidth, innerHeight);
+        }
+
+        /* ====================================================================
+     5. Unterseiten — Hash-Routing, Video und Ton laufen dabei weiter
+     ==================================================================== */
+        const PAGES = [
+          "work",
+          "about",
+          "contact",
+          "work/zap",
+          "work/memories",
+          "work/hotdawgs",
+        ];
+        const el = (id) => $("#" + id.replace("/", "-")); // 'work/zap' → #work-zap
+        const top = (id) => id && id.split("/")[0]; // Projektseiten gehören zu „Work“
+        const layer = $("#pages"),
+          baseTitle = document.title,
+          leaveTimer = {};
+        let current = null;
+
+        // Überschriften in einzelne Buchstaben zerlegen, Inhalte für die Staffelung markieren
+        document.querySelectorAll(".page").forEach((page) => {
+          const h = page.querySelector("h2"),
+            text = h.textContent;
+          h.setAttribute("aria-label", text);
+          h.innerHTML = [...text]
+            .map(
+              (c, i) =>
+                `<span class="ch" aria-hidden="true" style="--i:${i}">${c}</span>`,
+            )
+            .join("");
+          page
+            .querySelectorAll(
+              ".close, .pj-film.rv, .pj-phones, .lead, .about-top p:not(.lead), .projects li, .cols > div, .mail, .rule > .label, .rule > p, .pj-facts",
+            )
+            .forEach((el, i) => {
+              el.classList.add("rv");
+              el.style.setProperty("--d", Math.min(i, 8));
+            });
+        });
+
+        function route() {
+          const id = location.hash.slice(1);
+          const prev = current;
+          current = PAGES.includes(id) ? id : null;
+          if (prev === current) return;
+          // Projekte mit Film direkt unter dem Titel öffnen sich aus der Liste als Kino-Moment
+          const cine = (id) =>
+            CINEMA && !!id && !!el(id).querySelector("h2 + .pj-film");
+          const mode = !prev
+            ? "open"
+            : !current
+              ? "close"
+              : prev === "work" && cine(current)
+                ? "film"
+                : cine(prev) && current === "work"
+                  ? "unfilm"
+                  : "swap";
+
+          let from = null;
+          if (mode === "film") {
+            from = filmFrom || {
+              left: innerWidth / 2 - 80,
+              top: innerHeight / 2 - 45,
+              width: 160,
+              height: 90,
+            };
+            filmFrom = null;
+          }
+
+          layer.classList.toggle("open", !!current);
+          layer.classList.toggle("cinema", cine(current));
+          document.body.classList.toggle("in-page", !!current);
+
+          if (prev) {
+            // alte Seite verweht
+            const p = el(prev);
+            p.querySelectorAll("video").forEach((v) => v.pause());
+            p.classList.remove("open");
+            p.classList.add("leave");
+            p.inert = true;
+            p.querySelectorAll(".pj-film.cine").forEach((f) =>
+              f.classList.remove("cine"),
+            );
+            clearTimeout(leaveTimer[prev]);
+            leaveTimer[prev] = setTimeout(
+              () => p.classList.remove("leave"),
+              1000,
+            );
+          }
+          if (current) {
+            // neue Seite landet
+            const p = el(current);
+            clearTimeout(leaveTimer[current]);
+            p.classList.remove("leave");
+            p.style.setProperty("--enter", mode === "open" ? ".55s" : ".32s");
+            p.scrollTop = 0;
+            p.classList.add("open");
+            p.inert = false;
+            if (mode === "film") cineIn(p, from);
+          }
+
+          burst(mode === "unfilm" ? "swap" : mode, from);
+          if (mode === "open") SFX.whoosh(true, 1.7, 0.32);
+          else if (mode === "close") SFX.whoosh(false, 1.3, 0.26);
+          else if (mode === "film") SFX.whoosh(false, 1.1, 0.14);
+          else SFX.whoosh(true, 1, 0.18);
+
+          document.querySelectorAll("nav a").forEach((a) => {
+            if (current && a.hash === "#" + top(current))
+              a.setAttribute("aria-current", "page");
+            else a.removeAttribute("aria-current");
+          });
+          const h = current && el(current).querySelector("h2");
+          document.title = h
+            ? h.getAttribute("aria-label") + " — Marlon"
+            : baseTitle;
+          if (h) h.focus({ preventScroll: true });
+          else {
+            const a = $(`nav a[href="#${top(prev)}"]`);
+            if (a) a.focus({ preventScroll: true });
+          }
+        }
+
+        /* Kino-Auftritt: Der Film wächst aus dem Klickpunkt ins Bild,
+     bei Tastatur (kein Klickpunkt) aus der Bildschirmmitte.          */
+        /* Kino-Modus (Licht aus, Film wächst aus dem Klickpunkt, großer Samen-Burst).
+     Vorerst aus: alle Projekte öffnen wie Zap mit dem normalen Wechsel.
+     Zum Einschalten auf true setzen.                                        */
+        const CINEMA = false;
+        let filmFrom = null; // wird in route() einmal gelesen und an cineIn() und burst() gegeben
+        document.addEventListener(
+          "click",
+          (e) => {
+            const a = e.target.closest(".projects a");
+            if (!a) return;
+            if (e.detail)
+              filmFrom = {
+                left: e.clientX - 80,
+                top: e.clientY - 45,
+                width: 160,
+                height: 90,
+              };
+            else filmFrom = null;
+          },
+          true,
+        );
+
+        function cineIn(page, o) {
+          const fig = page.querySelector("h2 + .pj-film"),
+            film = fig.querySelector(".film");
+          fig.classList.add("cine");
+          const t = film.getBoundingClientRect();
+          const mobile = innerWidth <= 700;
+          const frames = reduced
+            ? [{ opacity: 0 }, { opacity: 1 }]
+            : [
+                {
+                  opacity: 0,
+                  transform: `translate(${o.left + o.width / 2 - (t.left + t.width / 2)}px, ${o.top + o.height / 2 - (t.top + t.height / 2)}px) scale(${Math.max(0.08, o.width / t.width)})`,
+                },
+                { opacity: 1, offset: 0.3 },
+                { opacity: 1, transform: "none" },
+              ];
+          film.classList.add("grow");
+          film
+            .animate(frames, {
+              duration: reduced ? 600 : mobile ? 850 : 1350,
+              delay: 120, // erst geht das Licht aus
+              easing: "cubic-bezier(.65, 0, .15, 1)",
+              fill: "backwards",
+            })
+            .finished.then(
+              () => film.classList.remove("grow"),
+              () => {},
+            );
+        }
+
+        function closePage() {
+          if (!current) return;
+          /* Bei direkt geöffneter Datei (file://) verweigern manche Browser pushState
+       mit einem Sicherheitsfehler — dann einfach den Hash leeren.             */
+          try {
+            history.pushState(null, "", location.pathname + location.search);
+            route();
+          } catch (e) {
+            location.hash = "";
+          }
+        }
+
+        /* Inhalte einer Projektseite erscheinen erst, wenn sie ins Bild scrollen */
+        if ("IntersectionObserver" in window && !reduced) {
+          document.querySelectorAll(".project").forEach((page) => {
+            const io = new IntersectionObserver(
+              (entries) =>
+                entries.forEach((e) => {
+                  if (e.isIntersecting) {
+                    e.target.classList.add("seen");
+                    io.unobserve(e.target);
+                  }
+                }),
+              { root: page, rootMargin: "0px 0px -12% 0px" },
+            );
+            page.querySelectorAll(".io").forEach((el) => io.observe(el));
+          });
+        } else
+          document
+            .querySelectorAll(".io")
+            .forEach((el) => el.classList.add("seen"));
+
+        /* Filme: eigener Player. Klick spielt/pausiert, die Linie zeigt den
+     Fortschritt und lässt sich anklicken. Läuft ein Film, tritt der Wind zurück. */
+        document.querySelectorAll("[data-film]").forEach((f) => {
+          const vid = f.querySelector("video"),
+            hit = f.querySelector(".film-hit"),
+            label = hit.querySelector(".mono"),
+            bar = f.querySelector(".film-bar"),
+            line = bar.querySelector("i");
+          const sync = () => {
+            const on = !vid.paused;
+            f.classList.toggle("playing", on);
+            label.textContent = on ? "Pause" : "Play";
+            hit.setAttribute("aria-label", on ? "Pause film" : "Play film");
+            if (soundOn) ramp(on ? 0.15 : 1);
+          };
+          hit.addEventListener("click", () => {
+            vid.paused ? vid.play().catch(() => {}) : vid.pause();
+          });
+          hit.addEventListener("dblclick", () => {
+            (
+              vid.requestFullscreen ||
+              vid.webkitEnterFullscreen ||
+              (() => {})
+            ).call(vid);
+          });
+          vid.addEventListener("play", sync);
+          vid.addEventListener("pause", sync);
+          vid.addEventListener("ended", () => {
+            vid.currentTime = 0;
+            sync();
+          });
+          vid.addEventListener("timeupdate", () => {
+            line.style.transform = `scaleX(${vid.currentTime / (vid.duration || 1)})`;
+          });
+          bar.addEventListener("click", (e) => {
+            const r = bar.getBoundingClientRect();
+            if (vid.duration)
+              vid.currentTime = ((e.clientX - r.left) / r.width) * vid.duration;
+          });
+        });
+
+        addEventListener("hashchange", route);
+        addEventListener("popstate", route);
+        // Esc: von einem Projekt zurück zur Liste, sonst zur Startansicht
+        addEventListener("keydown", (e) => {
+          if (e.key !== "Escape" || !current) return;
+          SFX.chime(NOTE.close, 0.08);
+          if (current.includes("/")) location.hash = "#" + top(current);
+          else closePage();
+        });
+        document
+          .querySelectorAll("[data-close]")
+          .forEach((b) => b.addEventListener("click", closePage));
+        // Aktiven Menüpunkt erneut anklicken: zurück zur Startansicht
+        // (auf einer Projektseite führt „Work“ dagegen zur Liste)
+        document.querySelectorAll("nav a").forEach((a) =>
+          a.addEventListener("click", (e) => {
+            if (a.hash === "#" + current) {
+              e.preventDefault();
+              closePage();
+            }
+          }),
+        );
+
+        // Klicks und Hover hörbar machen (Sound-Schalter klingt selbst, siehe oben)
+        document.addEventListener(
+          "click",
+          (e) => {
+            const el = e.target.closest("a, button");
+            if (!el || el === btn) return;
+            if (el.classList.contains("film-hit")) {
+              SFX.tick(0.05);
+              return;
+            }
+            const navId = el.closest("nav") && el.hash.slice(1);
+            SFX.tick(0.07);
+            if (navId)
+              SFX.chime(navId === current ? NOTE.close : NOTE[navId], 0.1);
+            else if (el.hasAttribute("data-close")) SFX.chime(NOTE.close, 0.08);
+            else SFX.chime(NOTE.other, 0.06);
+          },
+          true,
+        );
+        let hovered = null;
+        document.addEventListener("pointerover", (e) => {
+          const el = e.target.closest("a, button");
+          if (el && el !== hovered && e.pointerType === "mouse") SFX.tick(0.03);
+          hovered = el;
+        });
+
+        /* ====================================================================
+     5b. Sprache — EN / DE
+     Das HTML bleibt englisch. Das Wörterbuch ordnet einzelnen Textstellen
+     ihre deutsche Fassung zu; beim Umschalten werden nur diese Textknoten
+     ersetzt. Überschriften, Navigation und Projektnamen bleiben englisch.
+     Start: gespeicherte Wahl, sonst Browsersprache.
+     ==================================================================== */
+        const DE = {
+          "← Close": "← Schließen",
+          "3D Animation · 2026": "3D-Animation · 2026",
+          "3D Game / Unity · 2026": "3D-Spiel / Unity · 2026",
+          "Shop and meet in one app — what you buy shapes who you meet.":
+            "Shoppen und Leute kennenlernen in einer App – was du kaufst, bestimmt, wen du triffst.",
+          "A short 3D film about nostalgia — the kind that makes you idealize the past a little too much.":
+            "Ein 3D-Kurzfilm über Nostalgie – die Art, die einen die Vergangenheit ein bisschen zu sehr verklären lässt.",
+          "A 3D hot dog stand simulator. Simple premise, surprisingly stressful.":
+            "Ein 3D-Hotdog-Stand-Simulator. Simple Idee, überraschend stressig.",
+          // Projekt: Zap
+          "Shopping and connecting, in one app. What you buy shapes who you meet.":
+            "Shopping und Kennenlernen in einer App. Was du kaufst, bestimmt, wen du triffst.",
+          Year: "Jahr",
+          Discipline: "Disziplin",
+          "Duo project": "Duo-Projekt",
+          Idea: "Idee",
+          Profile: "Profil",
+          "Shopping and dating don’t seem to belong together. In Zap, they feed each other: the clothes you buy shape the people you’re shown, whether for dating or friendship. Similar style becomes the icebreaker. Know the clothes, know the people.":
+            "Shopping und Dating scheinen nicht zusammenzupassen. In Zap greifen sie ineinander: Die Kleidung, die du kaufst, beeinflusst, welche Menschen dir angezeigt werden, ob fürs Dating oder für Freundschaften. Ähnlicher Style wird zum Icebreaker. Know the clothes, know the people.",
+          "Prototype walkthrough": "Prototyp-Walkthrough",
+          "Research — lower the stakes. Liking someone’s jacket feels less exposed than liking their face.":
+            "Recherche – die Hemmschwelle senken. Jemandes Jacke zu liken fühlt sich weniger exponiert an als das Gesicht.",
+          "Next project": "Nächstes Projekt",
+          // Projekt: memories
+          "3D short film, 2026": "3D-Kurzfilm, 2026",
+          "Watch on YouTube": "Auf YouTube ansehen",
+          "A short film about nostalgia — the kind that makes you idealize the past a little too much.":
+            "Ein Kurzfilm über Nostalgie – die Art, die einen die Vergangenheit ein bisschen zu sehr verklären lässt.",
+          "3D Animation": "3D-Animation",
+          Approach: "Ansatz",
+          "Dwelling in memories is beautiful — until you get lost in them.":
+            "In Erinnerungen zu schwelgen ist schön, bis man sich darin verliert.",
+          "Compositing — 80+ layers in After Effects":
+            "Compositing – über 80 Ebenen in After Effects",
+          // Projekt: HotDawgs
+          "In-game footage": "Spielszenen",
+          "A hot dog stand simulator. Simple premise, surprisingly stressful.":
+            "Ein Hotdog-Stand-Simulator. Simple Idee, überraschend stressig.",
+          "3D Game": "3D-Spiel",
+          "Duo — environment & code": "Duo – Umgebung & Code",
+          "Under the hood": "Unter der Haube",
+          "Every customer is an agent with a life of its own.":
+            "Jeder Kunde ist ein Agent mit eigenem Leben.",
+          "Customer pathfinding — NavMesh in Unity":
+            "Wegfindung der Kunden – NavMesh in Unity",
+          "Project documentation": "Projektdokumentation",
+          "German · 1.8 MB": "Deutsch · 1,8 MB",
+          // About
+          "I’m a Media and Interaction Design student based in Osnabrück, currently enrolled in my fifth semester. I love bringing my ideas to life and presenting them in creative ways.":
+            "Ich studiere Media and Interaction Design in Osnabrück, aktuell im fünften Semester. Ich liebe es, meine Ideen zum Leben zu erwecken und sie auf kreative Weise zu zeigen.",
+          "Besides my studies I’m working as a Community Manager overseeing social media accounts of brands such as Condor, OBI and DGB. At some point, I would love to be involved in productions such as films, as storytelling and conveying emotions are my greatest passions.":
+            "Neben dem Studium arbeite ich als Community Manager und betreue die Social-Media-Kanäle von Marken wie Condor, OBI und DGB. Irgendwann möchte ich an Produktionen wie beispielsweise Filmen beteiligt sein, da Storytelling und das Rüberbringen von Emotionen meine größten Leidenschaften sind.",
+          Education: "Ausbildung",
+          Experience: "Erfahrung",
+          "10/2024 — Present": "10/2024 — heute",
+          "08/2024 — Present": "08/2024 — heute",
+          "Social Media Manager — Intern": "Social Media Manager — Praktikum",
+          Waiter: "Kellner",
+          // Contact
+          "Projects, internships or just a hello — write me.":
+            "Projekte, Praktika oder einfach ein Hallo – schreib mir.",
+          "Based in": "Standort",
+          "Osnabrück, Germany": "Osnabrück, Deutschland",
+        };
+        let lang = "en";
+        const soundLabel = () =>
+          lang === "de"
+            ? soundOn
+              ? "Windgeräusch ausschalten"
+              : "Windgeräusch einschalten"
+            : soundOn
+              ? "Turn wind sound off"
+              : "Turn wind sound on";
+
+        // Alle übersetzbaren Textknoten einmal einsammeln (Original bleibt am Knoten gemerkt)
+        // Schlüssel normalisieren: Zeilenumbrüche/Einrückung im HTML (Formatter) spielen keine Rolle
+        const norm = t => t.replace(/\s+/g, " ").trim();
+        const DEN = {};
+        for (const k in DE) DEN[norm(k)] = DE[k];
+        const tNodes = [];
+        const walker = document.createTreeWalker(
+          document.body,
+          NodeFilter.SHOW_TEXT,
+        );
+        for (let n; (n = walker.nextNode()); ) {
+          const key = norm(n.nodeValue);
+          if (
+            key &&
+            DEN[key] &&
+            !n.parentElement.closest("script, style, nav, h2")
+          ) {
+            n.__en = n.nodeValue;
+            n.__de = n.nodeValue.replace(/\S[\s\S]*\S|\S/, DEN[key]);   // Rand-Leerraum bleibt
+            tNodes.push(n);
+          }
+        }
+
+        function setLang(l) {
+          lang = l === "de" ? "de" : "en";
+          document.documentElement.lang = lang;
+          tNodes.forEach((n) => {
+            n.nodeValue = lang === "de" ? n.__de : n.__en;
+          });
+          document
+            .querySelectorAll(".lang button")
+            .forEach((b) =>
+              b.setAttribute("aria-pressed", String(b.dataset.lang === lang)),
+            );
+          $(".lang").setAttribute(
+            "aria-label",
+            lang === "de" ? "Sprache" : "Language",
+          );
+          btn.setAttribute("aria-label", soundLabel());
+          try {
+            localStorage.setItem("lang", lang);
+          } catch (e) {}
+        }
+        document
+          .querySelectorAll(".lang button")
+          .forEach((b) =>
+            b.addEventListener("click", () => setLang(b.dataset.lang)),
+          );
+        let saved = null;
+        try {
+          saved = localStorage.getItem("lang");
+        } catch (e) {}
+        const browserLang = (
+          (navigator.languages && navigator.languages[0]) ||
+          navigator.language ||
+          "en"
+        ).toLowerCase();
+        setLang(saved || (browserLang.startsWith("de") ? "de" : "en"));
+
+        route();
+
+        /* ====================================================================
+     6. Cursor — hält bei Stillstand an, statt dauerhaft Frames anzufordern
+     ==================================================================== */
+        if (matchMedia("(pointer: fine)").matches) {
+          const c = $("#cursor");
+          let x = innerWidth / 2,
+            y = innerHeight / 2,
+            tx = x,
+            ty = y,
+            raf = null;
+          // Parallaxe folgt träger als der Cursor: wirkt wie Masse und Tiefe
+          let px = 0,
+            py = 0,
+            tpx = 0,
+            tpy = 0;
+          const tick = () => {
+            x += (tx - x) * 0.22;
+            y += (ty - y) * 0.22;
+            c.style.transform = `translate3d(${x}px, ${y}px, 0)`;
+            let moving = Math.abs(tx - x) > 0.1 || Math.abs(ty - y) > 0.1;
+            if (parallax) {
+              px += (tpx - px) * 0.06;
+              py += (tpy - py) * 0.06;
+              root.style.setProperty("--px", px.toFixed(4));
+              root.style.setProperty("--py", py.toFixed(4));
+              moving =
+                moving ||
+                Math.abs(tpx - px) > 0.001 ||
+                Math.abs(tpy - py) > 0.001;
+            }
+            raf = moving ? requestAnimationFrame(tick) : null;
+          };
+          addEventListener(
+            "pointermove",
+            (e) => {
+              tx = e.clientX;
+              ty = e.clientY;
+              tpx = (tx / innerWidth) * 2 - 1;
+              tpy = (ty / innerHeight) * 2 - 1;
+              c.classList.add("on");
+              if (!raf) raf = requestAnimationFrame(tick);
+            },
+            { passive: true },
+          );
+          document.addEventListener("pointerleave", () => {
+            c.classList.remove("on");
+            tpx = tpy = 0; // Maus verlässt das Fenster: Szene gleitet zur Mitte
+            if (!raf) raf = requestAnimationFrame(tick);
+          });
+          // Delegiert, damit auch Links in den Unterseiten den Ring bekommen
+          document.addEventListener("pointerover", (e) => {
+            c.classList.toggle("big", !!e.target.closest("a, button"));
+          });
+        }
+      })();
+    </script>
+  </body>
+</html>
