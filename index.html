@@ -116,7 +116,9 @@
          leicht, die große Überschrift am stärksten (vorne).                     */
       @media (pointer: fine) and (prefers-reduced-motion: no-preference) {
         .stage video {
-          transform: scale(1.05); /* 5 % größer, damit beim Verschieben nie ein Rand sichtbar wird */
+          transform: scale(
+            1.05
+          ); /* 5 % größer, damit beim Verschieben nie ein Rand sichtbar wird */
         }
       }
 
@@ -516,7 +518,10 @@
       @media (min-width: 701px) {
         /* Spalten so breit wie ihr Inhalt, Abstände gleich verteilt:
            die Gruppe steht insgesamt mittig, Tools schließt rechts bündig ab */
-        .cols { grid-template-columns: repeat(3, auto); justify-content: space-between; }
+        .cols {
+          grid-template-columns: repeat(3, auto);
+          justify-content: space-between;
+        }
       }
       .cols ul {
         list-style: none;
@@ -1245,22 +1250,40 @@
           <div class="pj-phones rv">
             <figure>
               <picture>
-                <source type="image/webp" data-srcset="media/work/zap-profile.webp" />
-                <img data-src="media/work/zap-profile.png" alt="Zap profile screen" />
+                <source
+                  type="image/webp"
+                  data-srcset="media/work/zap-profile.webp"
+                />
+                <img
+                  data-src="media/work/zap-profile.png"
+                  alt="Zap profile screen"
+                />
               </picture>
               <figcaption class="mono">Profile</figcaption>
             </figure>
             <figure>
               <picture>
-                <source type="image/webp" data-srcset="media/work/zap-chats.webp" />
-                <img data-src="media/work/zap-chats.png" alt="Zap chats screen" />
+                <source
+                  type="image/webp"
+                  data-srcset="media/work/zap-chats.webp"
+                />
+                <img
+                  data-src="media/work/zap-chats.png"
+                  alt="Zap chats screen"
+                />
               </picture>
               <figcaption class="mono">Chats</figcaption>
             </figure>
             <figure>
               <picture>
-                <source type="image/webp" data-srcset="media/work/zap-shop.webp" />
-                <img data-src="media/work/zap-shop.png" alt="Zap shopping screen" />
+                <source
+                  type="image/webp"
+                  data-srcset="media/work/zap-shop.webp"
+                />
+                <img
+                  data-src="media/work/zap-shop.png"
+                  alt="Zap shopping screen"
+                />
               </picture>
               <figcaption class="mono">Shop</figcaption>
             </figure>
@@ -1318,7 +1341,10 @@
             <div class="frame">
               <div class="paper">
                 <picture>
-                  <source type="image/webp" data-srcset="media/work/zap-user-journey.webp" />
+                  <source
+                    type="image/webp"
+                    data-srcset="media/work/zap-user-journey.webp"
+                  />
                   <img
                     data-src="media/work/zap-user-journey.png"
                     alt="User journey map"
@@ -1584,8 +1610,8 @@
           <p class="lead" style="margin-bottom: clamp(28px, 4vw, 48px)">
             Projects, internships or just a hello — write me.
           </p>
-          <a class="mail" href="mailto:marlon.lutete@gmail.com"
-            >marlon.lutete@gmail.com</a
+          <a class="mail" href="mailto:hey@marlonloaiza.com"
+            >hey@marlonloaiza.com</a
           >
           <div
             class="rule"
@@ -1601,7 +1627,12 @@
 
     <div class="cursor" id="cursor"></div>
 
-    <div class="protect-toast" id="protect-toast" role="status" aria-live="polite">
+    <div
+      class="protect-toast"
+      id="protect-toast"
+      role="status"
+      aria-live="polite"
+    >
       <b>Note:</b>Content is protected
     </div>
 
@@ -2601,7 +2632,7 @@
 
         // Alle übersetzbaren Textknoten einmal einsammeln (Original bleibt am Knoten gemerkt)
         // Schlüssel normalisieren: Zeilenumbrüche/Einrückung im HTML (Formatter) spielen keine Rolle
-        const norm = t => t.replace(/\s+/g, " ").trim();
+        const norm = (t) => t.replace(/\s+/g, " ").trim();
         const DEN = {};
         for (const k in DE) DEN[norm(k)] = DE[k];
         const tNodes = [];
@@ -2617,7 +2648,7 @@
             !n.parentElement.closest("script, style, nav, h2")
           ) {
             n.__en = n.nodeValue;
-            n.__de = n.nodeValue.replace(/\S[\s\S]*\S|\S/, DEN[key]);   // Rand-Leerraum bleibt
+            n.__de = n.nodeValue.replace(/\S[\s\S]*\S|\S/, DEN[key]); // Rand-Leerraum bleibt
             tNodes.push(n);
           }
         }
@@ -2709,17 +2740,24 @@
             bgState.py = py;
             writeVideo();
             seedLayer.style.translate = `${0.7 * vw * px}px ${0.5 * vh * py}px`;
-            uiRows.forEach((r) => (r.style.translate = `${2 * px}px ${1.5 * py}px`));
+            uiRows.forEach(
+              (r) => (r.style.translate = `${2 * px}px ${1.5 * py}px`),
+            );
             const page = document.querySelector(".page.open");
             if (!page) return;
-            page.querySelector(".inner").style.translate = `${0.25 * vw * px}px ${0.3 * vh * py}px`;
-            page.querySelector("h2").style.translate = `${0.45 * vw * px}px ${0.25 * vh * py}px`;
+            page.querySelector(".inner").style.translate =
+              `${0.25 * vw * px}px ${0.3 * vh * py}px`;
+            page.querySelector("h2").style.translate =
+              `${0.45 * vw * px}px ${0.25 * vh * py}px`;
             page.querySelectorAll(".pj-phones figure").forEach((f, i) => {
               f.style.translate = `${PHONE_DEPTH[i] * px}px ${PHONE_DEPTH[i] * py}px`;
             });
           }
           // Neue Seite geöffnet: sofort auf die aktuelle Mausposition setzen, nicht erst bei der nächsten Bewegung
-          if (parallax) addEventListener("hashchange", () => requestAnimationFrame(applyParallax));
+          if (parallax)
+            addEventListener("hashchange", () =>
+              requestAnimationFrame(applyParallax),
+            );
           const tick = () => {
             x += (tx - x) * 0.22;
             y += (ty - y) * 0.22;
@@ -2781,7 +2819,10 @@
             const dt = Math.min(0.05, (now - last) / 1000);
             last = now;
             vel += (-OMEGA * OMEGA * bgState.rot - 2 * ZETA * OMEGA * vel) * dt;
-            bgState.rot = Math.max(-MAX_ROT, Math.min(MAX_ROT, bgState.rot + vel * dt));
+            bgState.rot = Math.max(
+              -MAX_ROT,
+              Math.min(MAX_ROT, bgState.rot + vel * dt),
+            );
             if (Math.abs(bgState.rot) < 0.002 && Math.abs(vel) < 0.01) {
               bgState.rot = 0;
               vel = 0;
@@ -2826,7 +2867,13 @@
               // je ~45 px Weg über dem Kopf löst sich ein Same, schneller = mehr
               travel += moved;
               if (travel > 45) {
-                shed(e.clientX, e.clientY, vx, vy, Math.min(3, Math.floor(travel / 45)));
+                shed(
+                  e.clientX,
+                  e.clientY,
+                  vx,
+                  vy,
+                  Math.min(3, Math.floor(travel / 45)),
+                );
                 travel = 0;
               }
             },
@@ -2835,7 +2882,8 @@
           addEventListener(
             "pointerdown",
             (e) => {
-              if (e.pointerType === "mouse" || !onHead(e.clientX, e.clientY)) return;
+              if (e.pointerType === "mouse" || !onHead(e.clientX, e.clientY))
+                return;
               const h = head();
               push((e.clientX < h.x ? 1 : -1) * 5); // vom Finger weg kippen
               shed(e.clientX, e.clientY, 0, 0, 6);
@@ -2861,7 +2909,8 @@
             notice();
           });
           document.addEventListener("dragstart", (e) => {
-            if (e.target.closest && e.target.closest("img, video")) e.preventDefault();
+            if (e.target.closest && e.target.closest("img, video"))
+              e.preventDefault();
           });
         }
       })();
