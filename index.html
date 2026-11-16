@@ -45,12 +45,21 @@
         margin: 0;
         padding: 0;
       }
+      /* <picture> nur als Hülle für WebP/PNG — Layout bestimmt allein das <img> */
+      picture {
+        display: contents;
+      }
+      /* Textmarkierung: schwarz statt Browser-Blau */
+      ::selection {
+        background: #000;
+        color: #fff;
+      }
       html,
       body {
         height: 100%;
       }
       body {
-        background: #808080; /* entspricht dem Video-Grau: kein Aufblitzen vor dem Laden */
+        background: #515256; /* entspricht dem Video-Grau: kein Aufblitzen vor dem Laden */
         color: var(--ink);
         font-family: var(
           --sans
@@ -65,7 +74,7 @@
         inset: 0;
         transform-origin: var(--ox) var(--oy);
         transition: transform 2.2s cubic-bezier(0.22, 0.8, 0.2, 1);
-        background: #808080 url("media/poster.jpg") center / cover no-repeat;
+        background: #515256 url("media/poster.jpg") center / cover no-repeat;
       }
       @media (orientation: portrait) and (max-width: 700px) {
         .stage {
@@ -100,32 +109,14 @@
       } /* Kamera fährt in die Pusteblume */
 
       /* ============ Parallaxe (nur Maus, nur ohne reduzierte Bewegung) ============ */
-      /* --px / --py laufen von -1 bis 1 und werden per JS weich nachgeführt.
-     Tiefe: Video weicht entgegen der Maus aus (hinten), Inhalt folgt ihr
-     leicht, die große Überschrift am stärksten (vorne).                     */
+      /* Die Verschiebungen schreibt das Script direkt auf die wenigen betroffenen
+         Elemente (Abschnitt 6) — keine Variablen am Wurzelelement, die bei jeder
+         Mausbewegung die Stile der ganzen Seite neu berechnen ließen.
+         Tiefe: Video weicht entgegen der Maus aus (hinten), Inhalt folgt ihr
+         leicht, die große Überschrift am stärksten (vorne).                     */
       @media (pointer: fine) and (prefers-reduced-motion: no-preference) {
         .stage video {
-          /* 5 % größer, damit beim Verschieben nie ein Rand sichtbar wird */
-          transform: translate3d(
-              calc(var(--px, 0) * -0.6vw),
-              calc(var(--py, 0) * -0.6vh),
-              0
-            )
-            scale(1.05);
-        }
-        /* eigene translate-Eigenschaft: kollidiert nicht mit den transform-Animationen */
-        .page .inner {
-          translate: calc(var(--px, 0) * 0.25vw) calc(var(--py, 0) * 0.3vh);
-        }
-        .page h2 {
-          translate: calc(var(--px, 0) * 0.45vw) calc(var(--py, 0) * 0.25vh);
-        }
-        #seeds {
-          translate: calc(var(--px, 0) * 0.7vw) calc(var(--py, 0) * 0.5vh);
-        }
-        nav,
-        footer {
-          translate: calc(var(--px, 0) * 2px) calc(var(--py, 0) * 1.5px);
+          transform: scale(1.05); /* 5 % größer, damit beim Verschieben nie ein Rand sichtbar wird */
         }
       }
 
@@ -350,6 +341,12 @@
       .page.open,
       .page.leave {
         visibility: visible;
+      }
+      /* Geschlossene Seiten: Inhalt wird weder gestylt, gelayoutet noch gezeichnet.
+         .live hebt das auf — JS setzt es einen Layout-Durchlauf vor .open, damit
+         die Einblend-Transitions (.ch, .rv) einen Startwert haben.              */
+      .page:not(.live) {
+        content-visibility: hidden;
       }
       .page.leave {
         pointer-events: none;
@@ -598,19 +595,11 @@
         gap: clamp(6px, 2.4vw, 40px);
         margin-bottom: clamp(24px, 4vw, 56px);
       }
-      .pj-phones figure {
-        translate: calc(var(--px, 0) * var(--depth))
-          calc(var(--py, 0) * var(--depth));
-      }
+      /* Tiefe der drei Telefone für die Parallaxe: siehe PHONE_DEPTH im Script */
       .pj-phones figure:nth-child(1) {
-        --depth: 10px;
         margin-bottom: calc(var(--h) * 0.1);
       }
-      .pj-phones figure:nth-child(2) {
-        --depth: 24px;
-      }
       .pj-phones figure:nth-child(3) {
-        --depth: 14px;
         margin-bottom: calc(var(--h) * 0.16);
       }
       .pj-phones img {
@@ -1112,6 +1101,36 @@
           transform: none !important;
         }
       }
+
+      /* Rechtsklick-Hinweis (Inhalte geschützt) */
+      .protect-toast {
+        position: fixed;
+        left: 50%;
+        top: 50%;
+        translate: -50% -50%;
+        z-index: 10000;
+        padding: 14px 22px;
+        background: rgba(10, 10, 10, 0.62);
+        -webkit-backdrop-filter: blur(14px);
+        backdrop-filter: blur(14px);
+        border: 1px solid rgba(255, 255, 255, 0.22);
+        color: var(--ink);
+        font-family: var(--sans);
+        font-size: var(--mono-size);
+        letter-spacing: 0.12em;
+        text-transform: uppercase;
+        white-space: nowrap;
+        opacity: 0;
+        pointer-events: none;
+        transition: opacity 0.25s var(--ease);
+      }
+      .protect-toast.show {
+        opacity: 1;
+      }
+      .protect-toast b {
+        font-weight: 600;
+        margin-right: 0.6em;
+      }
     </style>
   </head>
 
@@ -1225,15 +1244,24 @@
           <h2 id="work-zap-h" tabindex="-1">Zap</h2>
           <div class="pj-phones rv">
             <figure>
-              <img src="media/work/zap-profile.png" alt="Zap profile screen" />
+              <picture>
+                <source type="image/webp" data-srcset="media/work/zap-profile.webp" />
+                <img data-src="media/work/zap-profile.png" alt="Zap profile screen" />
+              </picture>
               <figcaption class="mono">Profile</figcaption>
             </figure>
             <figure>
-              <img src="media/work/zap-chats.png" alt="Zap chats screen" />
+              <picture>
+                <source type="image/webp" data-srcset="media/work/zap-chats.webp" />
+                <img data-src="media/work/zap-chats.png" alt="Zap chats screen" />
+              </picture>
               <figcaption class="mono">Chats</figcaption>
             </figure>
             <figure>
-              <img src="media/work/zap-shop.png" alt="Zap shopping screen" />
+              <picture>
+                <source type="image/webp" data-srcset="media/work/zap-shop.webp" />
+                <img data-src="media/work/zap-shop.png" alt="Zap shopping screen" />
+              </picture>
               <figcaption class="mono">Shop</figcaption>
             </figure>
           </div>
@@ -1275,8 +1303,8 @@
             <div class="film" data-film>
               <video
                 playsinline
-                preload="metadata"
-                poster="media/work/zap-poster.jpg"
+                preload="none"
+                data-poster="media/work/zap-poster.jpg"
               >
                 <source src="media/work/zap.mp4" type="video/mp4" /></video
               ><button class="film-hit" aria-label="Play film">
@@ -1289,11 +1317,14 @@
           <figure class="pj-img io">
             <div class="frame">
               <div class="paper">
-                <img
-                  src="media/work/zap-user-journey.png"
-                  alt="User journey map"
-                  loading="lazy"
-                />
+                <picture>
+                  <source type="image/webp" data-srcset="media/work/zap-user-journey.webp" />
+                  <img
+                    data-src="media/work/zap-user-journey.png"
+                    alt="User journey map"
+                    loading="lazy"
+                  />
+                </picture>
               </div>
             </div>
             <figcaption class="mono">
@@ -1321,8 +1352,8 @@
             <div class="film" data-film>
               <video
                 playsinline
-                preload="metadata"
-                poster="media/work/memories-poster.jpg"
+                preload="none"
+                data-poster="media/work/memories-poster.jpg"
               >
                 <source src="media/work/memories.mp4" type="video/mp4" /></video
               ><button class="film-hit" aria-label="Play film">
@@ -1371,7 +1402,7 @@
           <figure class="pj-img io">
             <div class="frame">
               <img
-                src="media/work/memories-timeline.jpg"
+                data-src="media/work/memories-timeline.jpg"
                 alt="After Effects timeline"
                 loading="lazy"
               />
@@ -1400,8 +1431,8 @@
             <div class="film" data-film>
               <video
                 playsinline
-                preload="metadata"
-                poster="media/work/hotdawgs-poster.jpg"
+                preload="none"
+                data-poster="media/work/hotdawgs-poster.jpg"
               >
                 <source src="media/work/hotdawgs.mp4" type="video/mp4" /></video
               ><button class="film-hit" aria-label="Play film">
@@ -1445,7 +1476,7 @@
           <figure class="pj-img io">
             <div class="frame">
               <img
-                src="media/work/hotdawgs-navmesh.jpg"
+                data-src="media/work/hotdawgs-navmesh.jpg"
                 alt="NavMesh visualization in Unity"
                 loading="lazy"
               />
@@ -1490,7 +1521,7 @@
             <div class="rv">
               <img
                 class="portrait"
-                src="media/portrait.jpg"
+                data-src="media/portrait.jpg"
                 alt="Marlon"
                 loading="lazy"
               />
@@ -1569,6 +1600,10 @@
     <canvas id="seeds" aria-hidden="true"></canvas>
 
     <div class="cursor" id="cursor"></div>
+
+    <div class="protect-toast" id="protect-toast" role="status" aria-live="polite">
+      <b>Note:</b>Content is protected
+    </div>
 
     <script>
       (() => {
@@ -2010,6 +2045,42 @@
         /* Projekt öffnet: Das Thumbnail platzt auf wie eine Pusteblume. Die Samen
      verteilen sich vom Ursprung aus über nahezu den ganzen Bildschirm und
      treiben mit dem Wind weiter, bis sie verblassen.                          */
+        /* Berührung: Ein paar Samen lösen sich am Rand des Kopfs, auf der Seite des
+           Zeigers, und treiben mit dem Wind (und etwas in Zugrichtung) davon.   */
+        function shed(cx, cy, vx, vy, n) {
+          if (reduced || seeds.length > 160) return;
+          const h = head(),
+            now = performance.now(),
+            R = 120 * h.k,
+            size = Math.max(0.75, Math.min(h.k, 1.4));
+          const base = Math.atan2(cy - h.y, cx - h.x);
+          for (let i = 0; i < n; i++) {
+            const a = base + (Math.random() - 0.5) * 1.6,
+              r = R * (0.75 + Math.random() * 0.25);
+            const p0 = { x: h.x + Math.cos(a) * r, y: h.y + Math.sin(a) * r };
+            const p2 = {
+              x: p0.x + 140 + Math.random() * 320 + vx * 120,
+              y: p0.y - 90 - Math.random() * 260 + vy * 80,
+            };
+            seeds.push({
+              mode: "open",
+              p0,
+              p2,
+              p1: {
+                x: (p0.x + p2.x) / 2 + (Math.random() - 0.5) * 140,
+                y: (p0.y + p2.y) / 2 - Math.random() * 120,
+              },
+              t0: now + Math.random() * 160,
+              dur: 2200 + Math.random() * 1400,
+              s: (3 + Math.random() * 4.5) * size,
+              rot: Math.random() * 6.28,
+              spin: (Math.random() - 0.5) * 5,
+              wob: Math.random() * 6.28,
+            });
+          }
+          if (!seedRaf) seedRaf = requestAnimationFrame(drawSeeds);
+        }
+
         function filmBurst(from, W, H, now, size) {
           const cx = from.left + from.width / 2,
             cy = from.top + from.height / 2;
@@ -2048,7 +2119,27 @@
           if (!seedRaf) seedRaf = requestAnimationFrame(drawSeeds);
         }
 
+        /* Samen-Grafik (weiß, 200×200, transparent): Marlons Zeichnung.
+           Ankerpunkt ist der Ansatz des Schirmchens bei (118 | 62); die Grafik
+           liegt schräg, -0,55 rad stellt den Samen annähernd aufrecht.
+           Bis sie geladen ist, wird die einfache Strich-Variante gezeichnet. */
+        const seedImg = new Image();
+        seedImg.src = "media/seed.png";
+        const SEED_HUB_X = 118 / 200,
+          SEED_HUB_Y = 62 / 200;
+
         function drawSeed(x, y, s, rot, alpha) {
+          if (seedImg.complete && seedImg.naturalWidth) {
+            const d = s * 4; // Kantenlänge der Grafik: Same etwa so groß wie bisher
+            g2.save();
+            g2.translate(x, y);
+            // leichtes Pendeln um die aufrechte Lage statt freiem Drehen
+            g2.rotate(-0.55 + Math.sin(rot) * 0.45);
+            g2.globalAlpha = alpha;
+            g2.drawImage(seedImg, -SEED_HUB_X * d, -SEED_HUB_Y * d, d, d);
+            g2.restore();
+            return;
+          }
           g2.save();
           g2.translate(x, y);
           g2.rotate(rot);
@@ -2189,7 +2280,7 @@
             );
             clearTimeout(leaveTimer[prev]);
             leaveTimer[prev] = setTimeout(
-              () => p.classList.remove("leave"),
+              () => p.classList.remove("leave", "live"),
               1000,
             );
           }
@@ -2200,6 +2291,9 @@
             p.classList.remove("leave");
             p.style.setProperty("--enter", mode === "open" ? ".55s" : ".32s");
             p.scrollTop = 0;
+            hydrate(p);
+            p.classList.add("live");
+            void p.scrollHeight; // Inhalt einmal berechnen: Ausgangszustand der Transitions
             p.classList.add("open");
             p.inert = false;
             if (mode === "film") cineIn(p, from);
@@ -2279,6 +2373,26 @@
               () => film.classList.remove("grow"),
               () => {},
             );
+        }
+
+        /* Medien der Unterseiten erst laden, wenn die Seite zum ersten Mal öffnet.
+           Im HTML stehen sie als data-src / data-poster und preload="none" —
+           die versteckten Seiten liegen sonst über dem Bildschirm, und der Browser
+           lädt alles (über 1 MB) schon auf der Startseite.                       */
+        function hydrate(page) {
+          if (page.dataset.hydrated) return;
+          page.dataset.hydrated = "1";
+          // WebP zuerst (srcset der <source>), sonst lädt der Browser zusätzlich das PNG
+          page.querySelectorAll("source[data-srcset]").forEach((src) => {
+            src.srcset = src.dataset.srcset;
+          });
+          page.querySelectorAll("img[data-src]").forEach((img) => {
+            img.src = img.dataset.src;
+          });
+          page.querySelectorAll("video[data-poster]").forEach((v) => {
+            v.poster = v.dataset.poster;
+            v.preload = "metadata";
+          });
         }
 
         function closePage() {
@@ -2549,6 +2663,29 @@
         /* ====================================================================
      6. Cursor — hält bei Stillstand an, statt dauerhaft Frames anzufordern
      ==================================================================== */
+        /* Hintergrundvideo: Parallaxe (px/py) und Wackeln (rot) in einem Transform.
+           Das Wackeln dreht das Video um den Fuß des Stiels — der Hintergrund ist
+           fast einfarbig, so wirkt es, als schwanke nur die Pusteblume.          */
+        const bgVideo = $("#bg");
+        const bgState = { px: 0, py: 0, rot: 0 };
+        function writeVideo() {
+          const { px, py, rot } = bgState;
+          if (!parallax && !rot) {
+            bgVideo.style.transform = "";
+            return;
+          }
+          const vw = innerWidth / 100,
+            vh = innerHeight / 100;
+          let t = `translate3d(${-0.6 * vw * px}px, ${-0.6 * vh * py}px, 0)`;
+          if (rot) {
+            const h = head(); // Drehpunkt: Fuß des Stiels, unten am Bildrand des Videos
+            const dx = h.x - innerWidth / 2,
+              dy = h.y + 0.291 * 1080 * h.k - innerHeight / 2;
+            t += ` translate(${dx}px, ${dy}px) rotate(${rot}deg) translate(${-dx}px, ${-dy}px)`;
+          }
+          bgVideo.style.transform = t + (parallax ? " scale(1.05)" : "");
+        }
+
         if (matchMedia("(pointer: fine)").matches) {
           const c = $("#cursor");
           let x = innerWidth / 2,
@@ -2561,6 +2698,28 @@
             py = 0,
             tpx = 0,
             tpy = 0;
+          const seedLayer = $("#seeds"),
+            uiRows = [$("nav"), $("footer")];
+          const PHONE_DEPTH = [10, 24, 14]; // px, Telefone der Zap-Komposition
+          // Verschiebung pro Ebene direkt setzen (nur Compositor-Eigenschaften)
+          function applyParallax() {
+            const vw = innerWidth / 100,
+              vh = innerHeight / 100;
+            bgState.px = px;
+            bgState.py = py;
+            writeVideo();
+            seedLayer.style.translate = `${0.7 * vw * px}px ${0.5 * vh * py}px`;
+            uiRows.forEach((r) => (r.style.translate = `${2 * px}px ${1.5 * py}px`));
+            const page = document.querySelector(".page.open");
+            if (!page) return;
+            page.querySelector(".inner").style.translate = `${0.25 * vw * px}px ${0.3 * vh * py}px`;
+            page.querySelector("h2").style.translate = `${0.45 * vw * px}px ${0.25 * vh * py}px`;
+            page.querySelectorAll(".pj-phones figure").forEach((f, i) => {
+              f.style.translate = `${PHONE_DEPTH[i] * px}px ${PHONE_DEPTH[i] * py}px`;
+            });
+          }
+          // Neue Seite geöffnet: sofort auf die aktuelle Mausposition setzen, nicht erst bei der nächsten Bewegung
+          if (parallax) addEventListener("hashchange", () => requestAnimationFrame(applyParallax));
           const tick = () => {
             x += (tx - x) * 0.22;
             y += (ty - y) * 0.22;
@@ -2569,8 +2728,7 @@
             if (parallax) {
               px += (tpx - px) * 0.06;
               py += (tpy - py) * 0.06;
-              root.style.setProperty("--px", px.toFixed(4));
-              root.style.setProperty("--py", py.toFixed(4));
+              applyParallax();
               moving =
                 moving ||
                 Math.abs(tpx - px) > 0.001 ||
@@ -2598,6 +2756,112 @@
           // Delegiert, damit auch Links in den Unterseiten den Ring bekommen
           document.addEventListener("pointerover", (e) => {
             c.classList.toggle("big", !!e.target.closest("a, button"));
+          });
+        }
+
+        /* ====================================================================
+     6b. Pusteblume berühren — sie schwankt wie an einer Feder und verliert
+         Samen. Maus: Überstreichen des Kopfs, Stärke nach Tempo und Richtung.
+         Touch: Tippen auf den Kopf. Nur auf der Startseite, nicht bei
+         reduzierter Bewegung.
+     ==================================================================== */
+        if (!reduced) {
+          const OMEGA = 2 * Math.PI * 1.05, // Eigenfrequenz der Schwingung (Hz)
+            ZETA = 0.16, // Dämpfung: ein paar Mal nachschwingen, dann Ruhe
+            MAX_ROT = parallax ? 0.9 : 0.6; // Grad; ohne 5 %-Zoom (Touch) weniger
+          let vel = 0,
+            wraf = null,
+            last = 0,
+            lastX = 0,
+            lastY = 0,
+            lastT = 0,
+            travel = 0,
+            lastSound = 0;
+          const swing = (now) => {
+            const dt = Math.min(0.05, (now - last) / 1000);
+            last = now;
+            vel += (-OMEGA * OMEGA * bgState.rot - 2 * ZETA * OMEGA * vel) * dt;
+            bgState.rot = Math.max(-MAX_ROT, Math.min(MAX_ROT, bgState.rot + vel * dt));
+            if (Math.abs(bgState.rot) < 0.002 && Math.abs(vel) < 0.01) {
+              bgState.rot = 0;
+              vel = 0;
+              wraf = null;
+            } else wraf = requestAnimationFrame(swing);
+            writeVideo();
+          };
+          const push = (impulse) => {
+            vel = Math.max(-10, Math.min(10, vel + impulse));
+            if (!wraf) {
+              last = performance.now();
+              wraf = requestAnimationFrame(swing);
+            }
+            const now = performance.now();
+            if (now - lastSound > 700) {
+              SFX.whoosh(true, 0.8, 0.05);
+              lastSound = now;
+            }
+          };
+          const onHead = (x, y) => {
+            if (document.body.classList.contains("in-page")) return false;
+            const h = head();
+            return Math.hypot(x - h.x, y - h.y) < 125 * h.k;
+          };
+          addEventListener(
+            "pointermove",
+            (e) => {
+              if (e.pointerType !== "mouse") return;
+              const now = performance.now(),
+                dtm = Math.max(8, now - lastT);
+              const vx = (e.clientX - lastX) / dtm,
+                vy = (e.clientY - lastY) / dtm; // px pro ms
+              const moved = Math.hypot(e.clientX - lastX, e.clientY - lastY);
+              lastX = e.clientX;
+              lastY = e.clientY;
+              lastT = now;
+              if (dtm > 200 || !onHead(e.clientX, e.clientY)) return;
+              // Anstoß ~ horizontale Strecke × Tempo: langsames Streifen wiegt sanft,
+              // ein schneller Wisch lässt sie deutlich ausschlagen
+              const speed = Math.max(0.5, Math.min(1.5, Math.abs(vx)));
+              push(vx * dtm * 0.028 * speed); // vx · dtm = horizontale Strecke in px
+              // je ~45 px Weg über dem Kopf löst sich ein Same, schneller = mehr
+              travel += moved;
+              if (travel > 45) {
+                shed(e.clientX, e.clientY, vx, vy, Math.min(3, Math.floor(travel / 45)));
+                travel = 0;
+              }
+            },
+            { passive: true },
+          );
+          addEventListener(
+            "pointerdown",
+            (e) => {
+              if (e.pointerType === "mouse" || !onHead(e.clientX, e.clientY)) return;
+              const h = head();
+              push((e.clientX < h.x ? 1 : -1) * 5); // vom Finger weg kippen
+              shed(e.clientX, e.clientY, 0, 0, 6);
+            },
+            { passive: true },
+          );
+        }
+
+        /* ====================================================================
+     7. Inhalte schützen — Rechtsklick und Ziehen von Bildern/Videos sperren.
+        Nur eine Hürde: Über die Entwicklertools bleibt alles erreichbar.
+     ==================================================================== */
+        {
+          const toast = $("#protect-toast");
+          let tt;
+          const notice = () => {
+            toast.classList.add("show");
+            clearTimeout(tt);
+            tt = setTimeout(() => toast.classList.remove("show"), 1800);
+          };
+          document.addEventListener("contextmenu", (e) => {
+            e.preventDefault();
+            notice();
+          });
+          document.addEventListener("dragstart", (e) => {
+            if (e.target.closest && e.target.closest("img, video")) e.preventDefault();
           });
         }
       })();
