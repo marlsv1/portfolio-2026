@@ -72,6 +72,16 @@
       .stage {
         position: fixed;
         inset: 0;
+        /* iPhone/Safari: über Statusleiste und Safari-Leiste hinaus ausdehnen.
+           100lvh = Höhe bei eingeklappten Leisten; die Sicherheitsbereiche
+           oben/unten kommen dazu. Am Desktop sind beide 0 → wie inset: 0.   */
+        top: calc(-1 * env(safe-area-inset-top, 0px));
+        bottom: auto;
+        height: 100%;
+        height: calc(
+          100lvh + env(safe-area-inset-top, 0px) +
+            env(safe-area-inset-bottom, 0px)
+        );
         transform-origin: var(--ox) var(--oy);
         transition: transform 2.2s cubic-bezier(0.22, 0.8, 0.2, 1);
         background: #515256 url("media/poster.jpg") center / cover no-repeat;
@@ -107,6 +117,36 @@
       body.in-page .stage {
         transform: scale(1.08);
       } /* Kamera fährt in die Pusteblume */
+
+      /* ============ Filmkorn ============
+         Das Video kommt ohne Korn; das Korn entsteht hier in Bildschirmpixeln.
+         So bleibt es auf jedem Monitor so fein wie in After Effects (Noise 5 %,
+         monochrom) und wird weder von der Kompression verschmiert noch beim
+         Hochskalieren vergröbert. Kachelgröße setzt das Script (Abschnitt 4).
+         Die Bewegung ist eine reine transform-Animation: kein Neuzeichnen. */
+      .grain {
+        position: absolute;
+        inset: -256px; /* Platz zum Verschieben, Ränder bleiben bedeckt */
+        background: url("media/grain.png") repeat 0 0 / 256px;
+        image-rendering: pixelated;
+        opacity: 0.5; /* Stärke: 0.5 ≈ 5 % in After Effects */
+        pointer-events: none;
+        animation: grain 0.5s steps(1) infinite; /* 12 Positionen in 0,5 s = 24 fps */
+      }
+      @keyframes grain {
+        0% { transform: translate3d(0, 0, 0); }
+        8.33% { transform: translate3d(-97px, 43px, 0); }
+        16.67% { transform: translate3d(61px, -128px, 0); }
+        25% { transform: translate3d(-23px, 101px, 0); }
+        33.33% { transform: translate3d(119px, 17px, 0); }
+        41.67% { transform: translate3d(-151px, -71px, 0); }
+        50% { transform: translate3d(37px, 149px, 0); }
+        58.33% { transform: translate3d(-59px, -13px, 0); }
+        66.67% { transform: translate3d(163px, 79px, 0); }
+        75% { transform: translate3d(-131px, 131px, 0); }
+        83.33% { transform: translate3d(83px, -167px, 0); }
+        91.67% { transform: translate3d(-11px, -109px, 0); }
+      }
 
       /* ============ Parallaxe (nur Maus, nur ohne reduzierte Bewegung) ============ */
       /* Die Verschiebungen schreibt das Script direkt auf die wenigen betroffenen
@@ -1100,6 +1140,9 @@
         body.in-page .stage {
           transform: none;
         }
+        .grain {
+          animation: none; /* Korn bleibt, flimmert aber nicht */
+        }
         .ch,
         .rv {
           filter: none !important;
@@ -1155,6 +1198,7 @@
         aria-hidden="true"
         tabindex="-1"
       ></video>
+      <div class="grain" aria-hidden="true"></div>
     </div>
 
     <!-- Windgeräusch getrennt vom Video: die Videodateien tragen keine Tonspur,
@@ -1719,11 +1763,17 @@
 
           load(0);
 
-          // Tab im Hintergrund: anhalten. Spart Akku und verhindert Nachholruckler.
-          document.addEventListener("visibilitychange", () => {
-            if (document.hidden) v.pause();
-            else if (!blocked) start();
-          });
+          /* Tab-Wechsel: NICHT selbst pausieren. Browser drosseln stumme
+             Hintergrundvideos ohnehin und lassen sie beim Zurückkehren ohne
+             Decoder-Neustart weiterlaufen. Ein eigenes pause() ließ das Video
+             beim Zurückkommen oft stehen. Kommt der Tab zurück (auch aus dem
+             Zurück-Cache), sofort an derselben Stelle weiterspielen.          */
+          const resume = () => {
+            if (!document.hidden && v.paused && v.src) start();
+          };
+          document.addEventListener("visibilitychange", resume);
+          addEventListener("pageshow", resume);
+          addEventListener("focus", resume);
 
           /* Wächter: prüft, ob die Zeit wirklich weiterläuft. Reagiert damit auch auf
        Fälle, die kein 'error' auslösen — leerer Puffer, schlafender Decoder,
@@ -1731,11 +1781,12 @@
           let lastT = -1,
             strikes = 0;
           setInterval(() => {
-            if (document.hidden || blocked || !v.src) return;
+            if (document.hidden || !v.src) return;
             if (v.paused) {
-              start();
+              start(); // auch nach einem gescheiterten Versuch erneut probieren
               return;
             }
+            if (blocked) return;
             if (v.currentTime === lastT) {
               if (++strikes === 2) start();
               if (strikes >= 4) {
@@ -1748,15 +1799,16 @@
             lastT = v.currentTime;
           }, 2000);
 
-          // Wenn Autoplay blockiert war: beim ersten Antippen nachstarten
+          // Steht das Video (Autoplay blockiert, Stromsparmodus): jede Berührung
+          // stößt es wieder an — nicht nur die erste
           const kick = () => {
-            if (blocked) {
+            if (v.paused && v.src) {
               blocked = false;
               start();
             }
           };
           ["pointerdown", "keydown", "touchstart"].forEach((e) =>
-            addEventListener(e, kick, { once: true, passive: true }),
+            addEventListener(e, kick, { passive: true }),
           );
         }
 
@@ -1880,7 +1932,65 @@
           ["pointerdown", "keydown", "touchstart"].forEach((e) =>
             addEventListener(e, init, { passive: true, capture: true }),
           );
-          return { chime, tick, whoosh };
+          /* Luftzug über der Pusteblume: EINE durchgehende Klangschicht statt
+             einzelner Stöße. Sie läuft dauerhaft (stumm), Lautstärke, Helligkeit
+             und Panorama gleiten nur weich zu neuen Zielwerten — mehrere
+             Berührungen hintereinander klingen wie ein langer Windhauch.
+             Braunes Rauschen (weich, windig), 7 s lang, mit langsamer
+             Filter-Schwankung als Böe, damit sich nichts hörbar wiederholt. */
+          let bz = null;
+          function breezeNodes() {
+            const len = ctx.sampleRate * 7,
+              buf = ctx.createBuffer(1, len, ctx.sampleRate),
+              d = buf.getChannelData(0);
+            let lastB = 0;
+            for (let i = 0; i < len; i++) {
+              lastB = (lastB + 0.02 * (Math.random() * 2 - 1)) / 1.02;
+              d[i] = lastB * 3.5;
+            }
+            const src = ctx.createBufferSource();
+            src.buffer = buf;
+            src.loop = true;
+            const bp = ctx.createBiquadFilter();
+            bp.type = "bandpass";
+            bp.Q.value = 0.7;
+            bp.frequency.value = 420;
+            const g = ctx.createGain();
+            g.gain.value = 0;
+            const lfo = ctx.createOscillator(),
+              lfoGain = ctx.createGain();
+            lfo.frequency.value = 0.19; // eine Böe etwa alle 5 s
+            lfoGain.gain.value = 160;
+            lfo.connect(lfoGain).connect(bp.frequency);
+            src.connect(bp).connect(g);
+            let node = g,
+              pn = null;
+            if (ctx.createStereoPanner) {
+              pn = ctx.createStereoPanner();
+              g.connect(pn);
+              node = pn;
+            }
+            out(node, 0.6);
+            src.start();
+            lfo.start();
+            return { g, bp, pn };
+          }
+          // level 0…1, pan -1…1, bright 0…1 (Tempo). Einblenden ~0,5 s.
+          function breeze(level, pan = 0, bright = 0) {
+            if (!live()) return;
+            bz = bz || breezeNodes();
+            const t = ctx.currentTime;
+            bz.g.gain.setTargetAtTime(level * 0.32, t, 0.18);
+            bz.bp.frequency.setTargetAtTime(360 + bright * 1100, t, 0.35);
+            if (bz.pn) bz.pn.pan.setTargetAtTime(pan, t, 0.4);
+          }
+          // langsam ausklingen (~3 s), nächste Berührung knüpft nahtlos an
+          function breezeOff() {
+            if (!bz || !live()) return;
+            bz.g.gain.setTargetAtTime(0, ctx.currentTime, 0.9);
+          }
+
+          return { chime, tick, whoosh, breeze, breezeOff };
         })();
 
         // Pentatonische Töne: jede Unterseite hat ihre eigene Note
@@ -1995,10 +2105,21 @@
           dpr = 1;
 
         // Wo sitzt der Pusteblumen-Kopf gerade auf dem Bildschirm? (object-fit: cover nachgerechnet)
+        // Bühne kann über die Fensterhöhe hinausragen (iPhone-Leisten): echte Maße nutzen
+        const stageEl = $(".stage");
+        let stageTop = 0,
+          stageH = innerHeight;
+        function measureStage() {
+          // berechnete CSS-Werte: unbeeinflusst vom Zoom der Bühne (body.in-page)
+          const cs = getComputedStyle(stageEl);
+          stageTop = parseFloat(cs.top) || 0;
+          stageH = parseFloat(cs.height) || innerHeight;
+        }
+        measureStage();
         function head() {
           const W = innerWidth,
-            H = innerHeight;
-          const portrait = H > W && W <= 700;
+            H = stageH;
+          const portrait = innerHeight > W && W <= 700; // wie die Quellenwahl (Abschnitt 1)
           const vw = portrait ? 608 : 1920,
             vh = 1080,
             fx = portrait ? 0.437 : 0.486,
@@ -2007,17 +2128,25 @@
           const z = parallax ? 1.05 : 1; // Video ist für die Parallaxe leicht vergrößert
           return {
             x: W / 2 + ((W - vw * k) / 2 + fx * vw * k - W / 2) * z,
-            y: H / 2 + ((H - vh * k) / 2 + fy * vh * k - H / 2) * z,
+            y: stageTop + H / 2 + ((H - vh * k) / 2 + fy * vh * k - H / 2) * z,
             k: k * z,
           };
         }
+        const grainEl = $(".grain");
         function layout() {
+          measureStage();
           const h = head();
           root.style.setProperty("--ox", h.x + "px");
           root.style.setProperty("--oy", h.y + "px");
           dpr = Math.min(devicePixelRatio || 1, 2);
           cv.width = innerWidth * dpr;
           cv.height = innerHeight * dpr;
+          // Korn: eine Zelle ≈ ein Pixel des Videos (wie in After Effects),
+          // aber nie gröber als 1 CSS-Pixel und nie feiner als 1 Gerätepixel
+          const portrait = innerHeight > innerWidth && innerWidth <= 700;
+          const videoPx = Math.max(innerWidth / (portrait ? 608 : 1920), innerHeight / 1080);
+          const cell = Math.max(1 / (devicePixelRatio || 1), Math.min(1, videoPx));
+          grainEl.style.backgroundSize = 256 * cell + "px";
         }
         layout();
         addEventListener("resize", layout, { passive: true });
@@ -2711,7 +2840,7 @@
           if (rot) {
             const h = head(); // Drehpunkt: Fuß des Stiels, unten am Bildrand des Videos
             const dx = h.x - innerWidth / 2,
-              dy = h.y + 0.291 * 1080 * h.k - innerHeight / 2;
+              dy = h.y + 0.291 * 1080 * h.k - (stageTop + stageH / 2); // relativ zur Videomitte
             t += ` translate(${dx}px, ${dy}px) rotate(${rot}deg) translate(${-dx}px, ${-dy}px)`;
           }
           bgVideo.style.transform = t + (parallax ? " scale(1.05)" : "");
@@ -2813,8 +2942,7 @@
             lastX = 0,
             lastY = 0,
             lastT = 0,
-            travel = 0,
-            lastSound = 0;
+            travel = 0;
           const swing = (now) => {
             const dt = Math.min(0.05, (now - last) / 1000);
             last = now;
@@ -2836,11 +2964,17 @@
               last = performance.now();
               wraf = requestAnimationFrame(swing);
             }
-            const now = performance.now();
-            if (now - lastSound > 700) {
-              SFX.whoosh(true, 0.8, 0.05);
-              lastSound = now;
-            }
+          };
+          // Luftzug halten, solange Bewegung kommt; danach weich ausklingen lassen
+          let breezeTimer = 0;
+          const blow = (x, speed, holdMs) => {
+            SFX.breeze(
+              0.45 + 0.55 * Math.min(1, speed),
+              ((x / innerWidth) * 2 - 1) * 0.7,
+              Math.min(1, speed),
+            );
+            clearTimeout(breezeTimer);
+            breezeTimer = setTimeout(SFX.breezeOff, holdMs);
           };
           const onHead = (x, y) => {
             if (document.body.classList.contains("in-page")) return false;
@@ -2864,6 +2998,7 @@
               // ein schneller Wisch lässt sie deutlich ausschlagen
               const speed = Math.max(0.5, Math.min(1.5, Math.abs(vx)));
               push(vx * dtm * 0.028 * speed); // vx · dtm = horizontale Strecke in px
+              blow(e.clientX, Math.hypot(vx, vy), 180);
               // je ~45 px Weg über dem Kopf löst sich ein Same, schneller = mehr
               travel += moved;
               if (travel > 45) {
@@ -2886,6 +3021,7 @@
                 return;
               const h = head();
               push((e.clientX < h.x ? 1 : -1) * 5); // vom Finger weg kippen
+              blow(e.clientX, 0.8, 450);
               shed(e.clientX, e.clientY, 0, 0, 6);
             },
             { passive: true },
