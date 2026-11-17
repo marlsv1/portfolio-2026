@@ -57,9 +57,11 @@
       html,
       body {
         height: 100%;
+        /* entspricht dem Video-Grau: kein Aufblitzen vor dem Laden; auch Safaris
+           Ersatzfarbe für die Leisten, falls es sie doch selbst einfärbt */
+        background: #515256;
       }
       body {
-        background: #515256; /* entspricht dem Video-Grau: kein Aufblitzen vor dem Laden */
         color: var(--ink);
         font-family: var(
           --sans
@@ -82,12 +84,100 @@
           100lvh + env(safe-area-inset-top, 0px) +
             env(safe-area-inset-bottom, 0px)
         );
-        transform-origin: var(--ox) var(--oy);
+        transform-origin: var(--sox, var(--ox)) var(--soy, var(--oy));
         transition: transform 2.2s cubic-bezier(0.22, 0.8, 0.2, 1);
+        /* iOS 26 Safari: Ein fixiertes, randvolles Element mit eigener Farbe am
+           oberen Rand malt Safari deckend in die Statusleiste. Darum hat die
+           Bühne selbst weder Farbe noch Sichtbarkeit — nur ihr Inhalt (Poster,
+           Video, Korn) ist sichtbar. So überspringt Safari sie beim Einfärben. */
+        visibility: hidden;
+      }
+      .stage > * {
+        visibility: visible;
+      }
+      /* ============ Touch-Geräte: Video hinter Statusleiste und Safari-Leiste ============
+         iOS 26 Safari schneidet fixierte Elemente auf den inneren Sichtbereich zu
+         und zeigt hinter seinen Leisten nur normalen Seiteninhalt. Deshalb ist die
+         Bühne hier gewöhnlicher Inhalt (absolute), der oben um --bleed-top und
+         unten um --bleed-bottom übersteht. Das Script scrollt die Seite beim Laden
+         um --bleed-top: Der obere Überstand liegt dann hinter der Statusleiste,
+         der untere hinter der Safari-Leiste. Selbst scrollen lässt sich die
+         Startseite nicht (touch-action), die Unterseiten schon.                  */
+      @media (pointer: coarse) {
+        :root {
+          /* gleich groß, damit die Bildmitte (und damit die Pusteblume) an ihrem
+             Platz bleibt; groß genug für Statusleiste bzw. Safari-Leiste */
+          --bleed-top: 70px;
+          --bleed-bottom: 70px;
+        }
+        html {
+          height: auto;
+          overflow-y: scroll;
+          overscroll-behavior: none;
+          scrollbar-width: none;
+        }
+        html::-webkit-scrollbar {
+          display: none;
+        }
+        body {
+          height: auto;
+          min-height: calc(100lvh + var(--bleed-top));
+          overflow: visible;
+          /* Kamera-Zoom der Bühne darf die Seite nicht verbreitern; relative macht den
+             Body zum Bezugsrahmen der Bühne, sonst greift das Abschneiden nicht */
+          position: relative;
+          overflow-x: clip;
+          touch-action: none;
+        }
+        .stage {
+          position: absolute;
+          top: 0;
+          left: 0;
+          right: 0;
+          bottom: auto;
+          height: calc(100lvh + var(--bleed-top) + var(--bleed-bottom));
+          overflow: hidden; /* Korn-Ebene ragt über; darf die Seite nicht verbreitern */
+        }
+        .page {
+          touch-action: pan-y; /* Unterseiten bleiben scrollbar */
+        }
+        /* Abdunklung der Unterseiten als Teil der Bühne statt als ::before der
+           fixierten Ebene: Safari liest eine solche Farbe einmal aus und behält
+           sie — die Leisten blieben nach dem Schließen grau. In der Bühne ist sie
+           normaler Seiteninhalt und erscheint auch hinter den Leisten.          */
+        .pages::before {
+          display: none;
+        }
+        .stage .stage-tint {
+          display: block; /* höhere Spezifität: schlägt die Grundregel weiter unten */
+        }
+        /* Kurze Unterseiten (Contact) hätten nichts zu scrollen — iOS reicht die
+           Wischbewegung dann an die ganze Seite weiter und das Video rutscht.
+           1 px Überlänge macht jede Unterseite selbst scrollbar; overscroll-
+           behavior: contain verhindert das Weiterreichen.                      */
+        .page > .inner {
+          min-height: calc(100% + 1px);
+        }
+      }
+      .stage-tint {
+        display: none;
+        position: absolute;
+        inset: 0;
+        background: rgba(14, 14, 14, 0.72);
+        opacity: 0;
+        transition: opacity 0.9s var(--ease) 0.25s;
+      }
+      body.in-page .stage-tint {
+        opacity: 1;
+        transition: opacity 0.9s var(--ease);
+      }
+      .stage-poster {
+        position: absolute;
+        inset: 0;
         background: #515256 url("media/poster.jpg") center / cover no-repeat;
       }
       @media (orientation: portrait) and (max-width: 700px) {
-        .stage {
+        .stage-poster {
           background-image: url("media/poster-portrait.jpg");
         }
       }
@@ -211,10 +301,16 @@
         transform-origin: left;
         transition: transform 0.45s var(--ease);
       }
-      nav a:hover::after,
       nav a:focus-visible::after,
       nav a[aria-current="page"]::after {
         transform: scaleX(1);
+      }
+      /* Hover-Unterstrich nur mit echtem Mauszeiger: auf Touch-Geräten bleibt
+         :hover am zuletzt angetippten Link hängen (Unterstrich nach „Schließen“) */
+      @media (hover: hover) {
+        nav a:hover::after {
+          transform: scaleX(1);
+        }
       }
 
       /* Kleine Labels: Geist in Versalien (Klassenname historisch, keine Monospace-Schrift) */
@@ -313,7 +409,11 @@
         position: fixed;
         inset: 0;
         z-index: 1;
-        background: rgba(14, 14, 14, 0.72);
+        /* iOS 26 Safari: keine eigene Farbe und keine Klicks an der fixierten
+           Ebene, sonst färbt Safari die Leisten damit ein. Die Abdunklung liegt
+           auf ::before (absolut — wird von Safari nicht herangezogen), Klicks
+           nimmt nur die offene Seite an.                                       */
+        pointer-events: none;
         --r: 0px;
         -webkit-mask-image: radial-gradient(
           circle at var(--ox) var(--oy),
@@ -339,9 +439,22 @@
           visibility 0s,
           background 0.9s var(--ease);
       }
+      .pages::before {
+        content: "";
+        position: absolute;
+        inset: 0;
+        background: rgba(14, 14, 14, 0.72);
+        transition: background 0.9s var(--ease);
+      }
+      .page.open {
+        pointer-events: auto;
+      }
       /* Kino: Projekt mit Film öffnet — das Licht geht aus, schnell und fast auf Schwarz */
-      .pages.cinema {
+      .pages.cinema::before {
         background: rgba(4, 4, 4, 0.96);
+        transition: background 0.45s cubic-bezier(0.4, 0, 0.2, 1);
+      }
+      .pages.cinema {
         transition:
           --r 1.6s cubic-bezier(0.2, 0.75, 0.15, 1),
           visibility 0s,
@@ -1184,6 +1297,7 @@
 
   <body>
     <div class="stage">
+      <div class="stage-poster"></div>
       <!-- src wird per JS gesetzt: passende Auflösung, Portrait-Schnitt, Fallback-Stufen -->
       <video
         id="bg"
@@ -1199,6 +1313,7 @@
         tabindex="-1"
       ></video>
       <div class="grain" aria-hidden="true"></div>
+      <div class="stage-tint" aria-hidden="true"></div>
     </div>
 
     <!-- Windgeräusch getrennt vom Video: die Videodateien tragen keine Tonspur,
@@ -2110,12 +2225,25 @@
         let stageTop = 0,
           stageH = innerHeight;
         function measureStage() {
-          // berechnete CSS-Werte: unbeeinflusst vom Zoom der Bühne (body.in-page)
+          // berechnete Werte/offsetTop: unbeeinflusst vom Zoom der Bühne (body.in-page)
           const cs = getComputedStyle(stageEl);
-          stageTop = parseFloat(cs.top) || 0;
+          stageTop =
+            cs.position === "fixed"
+              ? parseFloat(cs.top) || 0
+              : stageEl.offsetTop - scrollY; // Touch: Bühne scrollt mit der Seite
           stageH = parseFloat(cs.height) || innerHeight;
         }
+        /* Touch-Geräte: Seite um den oberen Überstand der Bühne scrollen und dort
+           halten — so liegt Video hinter Statusleiste und Safari-Leiste (siehe CSS). */
+        const bleedTop = () =>
+          parseFloat(getComputedStyle(root).getPropertyValue("--bleed-top")) || 0;
+        function pinScroll() {
+          const y = bleedTop();
+          if (y && Math.abs(scrollY - y) > 0.5) scrollTo(0, y);
+        }
+        pinScroll();
         measureStage();
+
         function head() {
           const W = innerWidth,
             H = stageH;
@@ -2134,10 +2262,14 @@
         }
         const grainEl = $(".grain");
         function layout() {
+          pinScroll();
           measureStage();
           const h = head();
           root.style.setProperty("--ox", h.x + "px");
           root.style.setProperty("--oy", h.y + "px");
+          // derselbe Punkt relativ zur Bühne (Ursprung des Kamera-Zooms)
+          root.style.setProperty("--sox", h.x + "px");
+          root.style.setProperty("--soy", h.y - stageTop + "px");
           dpr = Math.min(devicePixelRatio || 1, 2);
           cv.width = innerWidth * dpr;
           cv.height = innerHeight * dpr;
@@ -2150,6 +2282,15 @@
         }
         layout();
         addEventListener("resize", layout, { passive: true });
+        // Touch: jedes Verrutschen (Hash-Sprung, Zurück-Cache, Drehen) sofort zurückholen
+        if (bleedTop()) {
+          addEventListener("scroll", () => {
+            pinScroll();
+            measureStage();
+          }, { passive: true });
+          addEventListener("pageshow", layout);
+          addEventListener("orientationchange", () => setTimeout(layout, 300));
+        }
 
         function burst(mode, from) {
           if (reduced) return;
@@ -2474,11 +2615,13 @@
           document.title = h
             ? h.getAttribute("aria-label") + " — Marlon"
             : baseTitle;
+          // Fokus nur bei Tastaturbedienung versetzen — sonst zeigt Safari nach
+          // dem Schließen einen Fokusrahmen um den Menüpunkt
           if (h) h.focus({ preventScroll: true });
-          else {
+          else if (usingKeyboard) {
             const a = $(`nav a[href="#${top(prev)}"]`);
             if (a) a.focus({ preventScroll: true });
-          }
+          } else if (document.activeElement) document.activeElement.blur();
         }
 
         /* Kino-Auftritt: Der Film wächst aus dem Klickpunkt ins Bild,
@@ -2554,6 +2697,10 @@
             v.preload = "metadata";
           });
         }
+
+        let usingKeyboard = false;
+        addEventListener("keydown", () => (usingKeyboard = true), true);
+        addEventListener("pointerdown", () => (usingKeyboard = false), true);
 
         function closePage() {
           if (!current) return;
